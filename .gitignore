@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+.env
+raw/
+fetch_state.json
+staging/
