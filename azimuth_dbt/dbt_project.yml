@@ -36,3 +36,8 @@ seeds:
       +column_types:
         config_id: string
         launch_count: int
+
+models:
+  azimuth_dbt:
+    staging:
+      +materialized: view

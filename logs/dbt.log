@@ -89,3 +89,35 @@ Happy modeling!
 [0m17:19:36.969277 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x109041d90>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x11cf3ed20>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x11c4de9f0>]}
 [0m17:19:36.969563 [debug] [MainThread]: Flushing usage events
 [0m17:19:37.509603 [debug] [MainThread]: An error was encountered while trying to flush usage events
+[0m17:56:17.796842 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x111c994c0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x11582d040>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x11582cd40>]}
+
+
+============================== 17:56:17.799523 | 68636ecc-a4cd-43ec-b29e-ed08cbfe3412 ==============================
+[0m17:56:17.799523 [info ] [MainThread]: Running with dbt=1.12.0
+[0m17:56:17.799825 [debug] [MainThread]: running dbt with arguments {'empty': 'None', 'printer_width': '80', 'hints_enabled': 'True', 'cache_selected_only': 'False', 'static_parser': 'True', 'profiles_dir': '/Users/nacho/.dbt', 'partial_parse': 'True', 'introspect': 'True', 'use_experimental_parser': 'False', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'warn_error': 'None', 'send_anonymous_usage_stats': 'True', 'target_path': 'None', 'indirect_selection': 'eager', 'no_print': 'None', 'quiet': 'False', 'use_colors': 'True', 'log_format': 'default', 'debug': 'False', 'invocation_command': 'dbt show --inline describe table azimuth.bronze.launches', 'maximum_seed_size_mib': '1', 'write_json': 'True', 'log_path': 'logs', 'fail_fast': 'False', 'version_check': 'True', 'log_cache_events': 'False'}
+[0m17:56:17.800101 [error] [MainThread]: [[31mERROR[0m]: Encountered an error:
+Runtime Error
+  No dbt_project.yml found at expected path /Users/nacho/azimuth/dbt_project.yml
+  Verify that each entry within packages.yml (and their transitive dependencies) contains a file named dbt_project.yml
+  
+[0m17:56:17.801558 [debug] [MainThread]: Resource report: {"command_name": "show", "command_success": false, "command_wall_clock_time": 0.043954376, "process_in_blocks": "0", "process_kernel_time": 0.141261, "process_mem_max_rss": "137281536", "process_out_blocks": "0", "process_user_time": 1.090809}
+[0m17:56:17.801774 [debug] [MainThread]: Command `dbt show` failed at 17:56:17.801733 after 0.04 seconds
+[0m17:56:17.801923 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x115652780>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x11582ed80>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x11582edb0>]}
+[0m17:56:17.802061 [debug] [MainThread]: Flushing usage events
+[0m17:56:18.278292 [debug] [MainThread]: An error was encountered while trying to flush usage events
+[0m18:01:04.204572 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10b1930b0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10ca03b90>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10ca300e0>]}
+
+
+============================== 18:01:04.207256 | b8f64d96-50a6-4651-9586-cfcff4f6b692 ==============================
+[0m18:01:04.207256 [info ] [MainThread]: Running with dbt=1.12.0
+[0m18:01:04.207533 [debug] [MainThread]: running dbt with arguments {'maximum_seed_size_mib': '1', 'indirect_selection': 'eager', 'cache_selected_only': 'False', 'write_json': 'True', 'profiles_dir': '/Users/nacho/.dbt', 'quiet': 'False', 'invocation_command': 'dbt run', 'fail_fast': 'False', 'warn_error': 'None', 'use_experimental_parser': 'False', 'log_format': 'default', 'log_path': 'logs', 'log_cache_events': 'False', 'static_parser': 'True', 'no_print': 'None', 'use_colors': 'True', 'introspect': 'True', 'hints_enabled': 'True', 'empty': 'False', 'partial_parse': 'True', 'printer_width': '80', 'send_anonymous_usage_stats': 'True', 'version_check': 'True', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'debug': 'False', 'target_path': 'None'}
+[0m18:01:04.207794 [error] [MainThread]: [[31mERROR[0m]: Encountered an error:
+Runtime Error
+  No dbt_project.yml found at expected path /Users/nacho/azimuth/dbt_project.yml
+  Verify that each entry within packages.yml (and their transitive dependencies) contains a file named dbt_project.yml
+  
+[0m18:01:04.209607 [debug] [MainThread]: Resource report: {"command_name": "run", "command_success": false, "command_wall_clock_time": 0.045330208, "process_in_blocks": "0", "process_kernel_time": 0.149174, "process_mem_max_rss": "135774208", "process_out_blocks": "0", "process_user_time": 1.075403}
+[0m18:01:04.209868 [debug] [MainThread]: Command `dbt run` failed at 18:01:04.209822 after 0.05 seconds
+[0m18:01:04.210035 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10c82f6e0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10ca303b0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10ca32300>]}
+[0m18:01:04.210183 [debug] [MainThread]: Flushing usage events
+[0m18:01:04.824330 [debug] [MainThread]: An error was encountered while trying to flush usage events
