@@ -1,10 +1,10 @@
 # AZIMUTH scope document
 
-*Last updated: 11 August 2026*
+*Last updated: 20 August 2026*
 
-This document records the decisions made in Phase 0, before any transformation was written. The
-purpose is to state what the data can honestly support, and to make the judgment calls explicit
-so they can be challenged rather than hand-waved.
+This document records the scoping decisions for AZIMUTH, made before transformation code and
+revised as the data disproves them. The purpose is to state what the data can honestly support,
+and to make the judgment calls explicit so they can be challenged rather than hand-waved.
 
 Source: [Launch Library 2](https://thespacedevs.com/llapi) (The Space Devs), version 2.3.0.
 
@@ -25,20 +25,69 @@ record rather than creating a new one.
 
 ## Scope: which launches are in
 
-AZIMUTH models the **orbital** launch market. Scope is drawn on `mission.orbit`.
+AZIMUTH models the **Earth orbital launch market**. Scope is determined by the **vehicle**, not by
+the mission's recorded orbit.
 
-- **Suborbital** (orbit id 15) is excluded. New Shepard, HASTE, and sounding-rocket style flights
-  are not competing in the market this platform models.
-- **Unknown** (orbit id 25) is kept as its own third category. It is not silently folded into
-  orbital. Roughly 5% of the recent sample falls here, which is small enough not to distort
-  headline numbers but large enough that assuming it away would be dishonest.
-- Everything else in the orbit reference list is treated as orbital, including deep-space and
-  planetary trajectories, since reaching them requires an orbital-class vehicle.
+This is a revision. The original decision drew scope on `mission.orbit`, based on an audit of the
+100 most recent launches in which every record had an orbit. Against the full 7,598-record
+history, that assumption failed: 530 launches (7%) have no orbit recorded, and the missingness is
+not random. It concentrates in Chinese, Russian, and classified military missions, peaking at 28%
+of all launches in the 2010s and reaching 55% of CASC's launches in that decade. Filtering on the
+orbit field would silently remove roughly half of China's 2010s launch activity, which is exactly
+the market share the platform exists to measure. The field reflects what launching organizations
+publish, not what they flew.
 
-An earlier hypothesis, that `orbital_launch_attempt_count` being null could serve as a suborbital
-flag, was tested and rejected. Of four null records in the sample, three were suborbital and one
-(a Soyuz-5 demo flight) was not. A filter that is right 75% of the time fails silently, so it is
-not used.
+The scoping rule is therefore:
+
+1. Every launch is classified by its **vehicle configuration**, using a curated seed table (see
+   below). A Long March with no published orbit is still an orbital launch, because Long March is
+   an orbital-class vehicle.
+2. For the small set of configurations that genuinely flew both regimes, the **per-launch orbit
+   field overrides** the vehicle class where it is explicitly "Suborbital." Scout X-1 flew five
+   orbital attempts and one suborbital probe under one configuration; Electron may carry HASTE's
+   suborbital flights; the earliest Mercury-Atlas flights were suborbital. The override handles
+   these without weakening the vehicle-level default.
+3. `mission.orbit` is retained for **orbit-class breakdown views** (LEO vs GTO vs SSO), with its
+   coverage gap disclosed on those views rather than hidden.
+
+### The vehicle classification seed
+
+The classification lives in `seeds/vehicle_classification.csv`: one row per launcher
+configuration appearing in the launch data (485 configurations), with a `vehicle_class` and a
+`notes` column.
+
+Automated classification was attempted first and rejected on the evidence. The API's
+`leo_capacity` field is null for 183 of 532 configurations, and zero cannot be trusted either:
+GSLV Mk II, Long March 3A, and Zenit all carry `leo_capacity = 0`, where zero evidently means
+"not entered" for GTO-focused vehicles rather than "cannot reach orbit." The `apogee` field is
+equally inconsistent (orbital Ariane 5 ECA records its GTO apogee; sibling configurations record
+nothing).
+
+The seed was built with AI assistance and human review: an initial classification was generated
+for all 485 rows, 25 uncertain rows were flagged, and every flagged row was verified against the
+actual launch records in bronze (plus one web check). Six of the 25 flags changed on review,
+including two entire categories nobody anticipated. The `notes` column carries the verification
+trail for every row that required judgment.
+
+Classes:
+
+| Class | Configs | Launches | Meaning |
+|---|---|---|---|
+| `orbital` | 456 | 7,399 | Orbital-class launch vehicle |
+| `suborbital` | 26 | 188 | Suborbital by design: tourism, sounding rockets, rocket planes, abort and reentry tests |
+| `non_earth_launch` | 2 | 5 | Launches not from Earth (see below) |
+| `not_a_launch_vehicle` | 1 | 6 | Records that are not launch vehicles (Apollo Lunar Module) |
+
+### Non-Earth launches
+
+The source tracks launches from other celestial bodies. Five records in the dataset are **ascent
+stages lifting off from the lunar surface**: Luna 16, 20, and 24, and Chang'e 5 and 6, all sample
+return missions. Their dates are the lunar liftoffs, not the Earth launches (which appear
+separately under their actual launch vehicles).
+
+These are excluded from the Earth launch market via the seed. The principled long-term filter is
+the launch pad's celestial body, which the API provides but the bronze flatten does not yet carry;
+adding it requires re-flattening from the raw archive, not re-fetching.
 
 ---
 
@@ -46,15 +95,20 @@ not used.
 
 Vehicle identity is **`rocket.configuration.id`**, not `rocket.id`.
 
-A "rocket" in the API is an instance of a flight. The configuration is the vehicle type. In one
-sampled record, `rocket.id` was 8665 while `rocket.configuration.id` was 137 (New Shepard). The
+A "rocket" in the API is an instance of a flight. The configuration is the vehicle type. The
 maturation and reliability analysis compares vehicle types, so the configuration is the unit.
 
-Launcher configurations are loaded separately rather than being extracted from launch records.
-Fetching launches in detailed mode returns the full configuration object nested six levels deep,
-including manufacturer descriptions, images, and licence metadata. That is unusable at bulk. A
-separate load against `/launcher_configurations/` is both lighter and correct, since configurations
-change rarely and should not be re-fetched with every launch.
+Two data quality caveats, found during Phase 2:
+
+- **Duplicate configuration records exist for the same vehicle.** "Soyuz U" and "Soyuz-U" are two
+  distinct records (714 and 71 launches); "Zenit" appears twice. Joins are on configuration id,
+  never on name, and name normalization is a silver-layer task.
+- Configuration detail must be fetched with `mode=detailed`; the list-mode response strips every
+  capacity and statistics field (verified: 532 of 532 null in list mode).
+
+Launcher configurations are loaded separately rather than being extracted from launch records,
+because launch records in detailed mode nest the full configuration object six levels deep,
+including manufacturer biographies and image licences.
 
 ---
 
@@ -172,28 +226,30 @@ holds data as it arrived.
 
 ---
 
-## Data integrity check
+## Data integrity: full-history findings
 
-Run against the 100 most recent launches:
+The original audit ran against the 100 most recent launches on the development mirror and found
+zero missing missions and zero missing orbits. That document flagged the result as a best case.
+The full-history check (Phase 2, against all 7,598 production records) confirmed the warning:
 
-- 0 records missing a mission
-- 0 records missing an orbit
-- 91 orbital, 5 Unknown, 4 suborbital
+- **517 launches have no mission record; 530 have no orbit** — about 7% of the dataset. Nearly
+  every missing orbit is missing because the whole mission record is absent.
+- Explicit orbit "Unknown" is a separate, rare case: 16 records, all in the 2020s.
+- The missingness is **not concentrated in early history**. By decade, the missing-orbit rate runs
+  0% (1950s), 5.8%, 1.9%, 3.2%, 7.7%, 8.9% — then spikes to **28.1% in the 2010s** before
+  collapsing to 0.5% in the 2020s.
+- The 2010s spike is explained by **provider transparency, not era**: 55% of CASC's 2010s launches
+  lack an orbit, 61% of ILS's, 49% of Khrunichev's, and 100% of ISC Kosmotras's, against 3% for
+  Arianespace. ULA's 15% likely reflects classified NRO payloads. The gap tracks what launching
+  organizations publish.
 
-Orbit distribution: 60 Low Earth, 11 Sun-Synchronous, 10 Polar, 7 Geostationary Transfer, 2
-Elliptical, 1 Medium Earth.
-
-Every record had both a mission and an orbit, so `mission.orbit` is a clean filter on this sample
-with no missing-data judgment required.
+This finding is what forced the scoping revision above: because the missingness correlates with
+provider, any metric filtered on the orbit field is biased against exactly the providers whose
+share the platform measures.
 
 ---
 
 ## Known limitations
-
-**The integrity check is a best case.** It ran on the 100 most recent launches, taken from the
-development mirror. Historical records from the 1960s and 70s are considerably more likely to have
-gaps. Re-running this check against the full 7,598-record history is the first task of Phase 2, and
-it may change the conclusions above.
 
 **Row counts rule out duplicates, not gaps.** The API paginates by offset. If records are inserted
 into the dataset while a five-hour backfill is running, offsets shift forward and a record can be
@@ -203,10 +259,22 @@ likely explanation is launches confirmed during the run, but this has not been v
 completeness comparison against the source count is on the data quality list.
 
 **The development mirror is not representative.** It holds 354 records where production holds
-7,589. It is suitable for testing code and unsuitable for any quantitative conclusion. Any figure
-in this document sourced from the mirror is marked as such.
+7,598. It is suitable for testing code and unsuitable for any quantitative conclusion.
 
-**Two candidate measures are unconfirmed.** Payload mass and booster reuse are both desirable on
+**Source data errors exist and are recorded, not silently corrected.** Example: the Scout X-2
+flight P-21A is recorded with orbit "Low Earth Orbit," but the P-21/P-21A missions were
+historically suborbital ionosphere probes. The record is noted in the classification seed rather
+than altered.
+
+**Duplicate configuration records** (Soyuz U / Soyuz-U, two Zenit records) mean per-vehicle
+statistics computed by name are wrong. All joins are on configuration id; name normalization is a
+silver task.
+
+**The bronze flatten does not yet carry the pad's celestial body**, which is the principled filter
+for non-Earth launches. The seed handles the five known cases; adding the column is a re-flatten
+from the immutable raw archive, not a re-fetch.
+
+**Two candidate measures remain unconfirmed.** Payload mass and booster reuse are both desirable on
 the fact table but neither is confirmed obtainable. `payloads` returned an empty list in the
 sampled record. Booster reuse lives inside `launcher_stage`, which is a list, so a single boolean
 at launch grain would be a collapse decision rather than a field to read. Neither is promised until
@@ -219,3 +287,4 @@ verified.
 | Date | Change |
 |------|--------|
 | 2026-08-11 | Initial version, covering Phase 0 decisions and Phase 1 findings. |
+| 2026-08-20 | Scoping revised after full-history audit: orbital scope moved from `mission.orbit` to the vehicle classification seed with per-launch orbit override; non-Earth launches identified and excluded; integrity section replaced with full-history findings (7% missing orbits, provider-transparency pattern); duplicate configs and the P-21A source error recorded. |
