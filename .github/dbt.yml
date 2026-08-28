@@ -1,0 +1,42 @@
+name: dbt build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  dbt-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: azimuth_dbt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dbt
+        run: pip install dbt-databricks==1.12.3
+
+      - name: Write dbt profile
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          azimuth_dbt:
+            target: ci
+            outputs:
+              ci:
+                type: databricks
+                catalog: azimuth
+                schema: ci
+                host: ${{ secrets.DBT_DATABRICKS_HOST }}
+                http_path: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+                token: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+                threads: 1
+          EOF
+
+      - name: Build and test
+        run: dbt build
