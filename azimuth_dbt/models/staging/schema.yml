@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: stg_launches
+    description: Typed launches with outcome flags and vehicle scope classification.
+    columns:
+      - name: launch_id
+        tests:
+          - unique
+          - not_null
+      - name: scope_class
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['orbital', 'suborbital', 'non_earth_launch', 'not_a_launch_vehicle', 'unclassified']
+      - name: config_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('vehicle_classification')
+                field: config_id

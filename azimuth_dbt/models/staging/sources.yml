@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: bronze
+    catalog: azimuth
+    schema: bronze
+    description: Raw launch data as ingested from Launch Library 2. All columns string.
+    tables:
+      - name: launches
+        description: One row per launch attempt, merged on launch_id.
