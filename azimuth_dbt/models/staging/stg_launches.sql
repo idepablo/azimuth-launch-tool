@@ -43,6 +43,16 @@ casted as (
         orbit_name,
         pad_id,
         pad_name,
+        
+        -- location_id shares orbit_id's pandas float artifact (nullable
+        -- at flatten time): normalize to clean integer strings
+        cast(cast(try_cast(location_id as double) as int) as string) as location_id,
+        location_name,
+        location_country,
+        location_country_code,
+        celestial_body,
+        cast(pad_latitude as double)  as pad_latitude,
+        cast(pad_longitude as double) as pad_longitude,
 
         -- lineage
         source_file,

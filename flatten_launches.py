@@ -37,6 +37,13 @@ def flatten_launch(launch, source_file, ingest_date):
         "orbit_name": dig(launch, "mission", "orbit", "name"),
         "pad_id": dig(launch, "pad", "id"),
         "pad_name": dig(launch, "pad", "name"),
+        "pad_latitude": dig(launch, "pad", "latitude"),
+        "pad_longitude": dig(launch, "pad", "longitude"),
+        "location_id": dig(launch, "pad", "location", "id"),
+        "location_name": dig(launch, "pad", "location", "name"),
+        "location_country": dig(launch, "pad", "location", "country", "name"),
+        "location_country_code": dig(launch, "pad", "location", "country", "alpha_3_code"),
+        "celestial_body": dig(launch, "pad", "location", "celestial_body", "name"),
         "source_file": source_file,
         "ingest_date": ingest_date,
     }

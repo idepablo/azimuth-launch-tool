@@ -213,7 +213,7 @@ config_id,config_name,launch_count,leo_capacity,apogee,is_placeholder,vehicle_cl
 112,Epsilon,6,,,False,orbital,
 220,Ariane 2,6,,,False,orbital,
 294,Delta 3920/PAM,6,1280.0,,False,orbital,
-513,Apollo LM,6,,,False,not_a_launch_vehicle,"Apollo Lunar Module - spacecraft, not a launch vehicle"
+513,Apollo LM,6,,,False,non_earth_launch,verified: LM ascent stages launching from the lunar surface; reclassified from not_a_launch_vehicle when celestial_body data confirmed all 6 records are lunar ascents
 194,Kuaizhou 11,6,1000.0,,False,orbital,
 141,LauncherOne,6,500.0,,False,orbital,
 105,Delta II,6,3099.0,,False,orbital,
