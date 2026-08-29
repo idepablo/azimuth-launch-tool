@@ -1,0 +1,51 @@
+version: 2
+
+models:
+  - name: dim_date
+    columns:
+      - name: date_key
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_provider
+    columns:
+      - name: provider_key
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_vehicle
+    columns:
+      - name: vehicle_key
+        tests:
+          - unique
+          - not_null
+      - name: vehicle_class
+        tests:
+          - not_null
+
+  - name: fct_launches
+    columns:
+      - name: launch_id
+        tests:
+          - unique
+          - not_null
+      - name: date_key
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: provider_key
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_provider')
+                field: provider_key
+      - name: vehicle_key
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_vehicle')
+                field: vehicle_key

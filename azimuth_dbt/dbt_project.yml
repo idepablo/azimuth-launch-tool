@@ -41,3 +41,6 @@ models:
   azimuth_dbt:
     staging:
       +materialized: view
+    marts:
+      +materialized: table
+      +schema: gold
