@@ -4,4 +4,4 @@ __pycache__/
 .env
 raw/
 fetch_state.json
-/staging/
+/staging/.DS_Store
