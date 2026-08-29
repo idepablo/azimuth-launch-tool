@@ -1,7 +1,5 @@
 # AZIMUTH scope document
 
-*Last updated: 20 August 2026*
-
 This document records the scoping decisions for AZIMUTH, made before transformation code and
 revised as the data disproves them. The purpose is to state what the data can honestly support,
 and to make the judgment calls explicit so they can be challenged rather than hand-waved.
@@ -75,19 +73,23 @@ Classes:
 |---|---|---|---|
 | `orbital` | 456 | 7,399 | Orbital-class launch vehicle |
 | `suborbital` | 26 | 188 | Suborbital by design: tourism, sounding rockets, rocket planes, abort and reentry tests |
-| `non_earth_launch` | 2 | 5 | Launches not from Earth (see below) |
-| `not_a_launch_vehicle` | 1 | 6 | Records that are not launch vehicles (Apollo Lunar Module) |
+| `non_earth_launch` | 3 | 11 | Launches not from Earth (see below) |
+| `not_a_launch_vehicle` | 0 | 0 | Kept as a legal class; currently empty (see Apollo LM below) |
 
 ### Non-Earth launches
 
-The source tracks launches from other celestial bodies. Five records in the dataset are **ascent
-stages lifting off from the lunar surface**: Luna 16, 20, and 24, and Chang'e 5 and 6, all sample
-return missions. Their dates are the lunar liftoffs, not the Earth launches (which appear
+The source tracks launches from other celestial bodies. Eleven records in the dataset are **ascent
+stages lifting off from the lunar surface**: the six Apollo Lunar Module ascents, Luna 16, 20, and
+24, and Chang'e 5 and 6. Their dates are the lunar liftoffs, not the Earth launches (which appear
 separately under their actual launch vehicles).
 
-These are excluded from the Earth launch market via the seed. The principled long-term filter is
-the launch pad's celestial body, which the API provides but the bronze flatten does not yet carry;
-adding it requires re-flattening from the raw archive, not re-fetching.
+The count was found twice, independently. The seed review identified the Luna and Chang'e records
+(5 launches). Then the pad's celestial body, added to bronze by re-flattening the raw archive,
+returned 11 Moon launches, exposing that Apollo LM had been imprecisely classified as
+`not_a_launch_vehicle`: the LM ascent stage is a launch vehicle, it just launches from the Moon.
+After reclassification, `vehicle_class = 'non_earth_launch'` and `celestial_body = 'Moon'` agree
+exactly (11 = 11), and each can serve as a test of the other. All eleven are excluded from the
+Earth launch market.
 
 ---
 
@@ -232,11 +234,11 @@ The original audit ran against the 100 most recent launches on the development m
 zero missing missions and zero missing orbits. That document flagged the result as a best case.
 The full-history check (Phase 2, against all 7,598 production records) confirmed the warning:
 
-- **517 launches have no mission record; 530 have no orbit** — about 7% of the dataset. Nearly
+- **517 launches have no mission record; 530 have no orbit**, about 7% of the dataset. Nearly
   every missing orbit is missing because the whole mission record is absent.
 - Explicit orbit "Unknown" is a separate, rare case: 16 records, all in the 2020s.
 - The missingness is **not concentrated in early history**. By decade, the missing-orbit rate runs
-  0% (1950s), 5.8%, 1.9%, 3.2%, 7.7%, 8.9% — then spikes to **28.1% in the 2010s** before
+  0% (1950s), 5.8%, 1.9%, 3.2%, 7.7%, 8.9%, then spikes to **28.1% in the 2010s** before
   collapsing to 0.5% in the 2020s.
 - The 2010s spike is explained by **provider transparency, not era**: 55% of CASC's 2010s launches
   lack an orbit, 61% of ILS's, 49% of Khrunichev's, and 100% of ISC Kosmotras's, against 3% for
@@ -270,9 +272,20 @@ than altered.
 statistics computed by name are wrong. All joins are on configuration id; name normalization is a
 silver task.
 
-**The bronze flatten does not yet carry the pad's celestial body**, which is the principled filter
-for non-Earth launches. The seed handles the five known cases; adding the column is a re-flatten
-from the immutable raw archive, not a re-fetch.
+**Reference data (agencies, launcher configurations) was fetched from the development mirror**, not
+production, to stay inside the production rate limit. The shortcut is justified by coverage
+verification: every provider id (99) and every configuration id (485) appearing in launch data was
+found in the mirror snapshots. If either check ever fails, the missing records get fetched from
+production.
+
+**Agency country is a list in the source** (agencies can be multinational, such as ESA members).
+The flatten keeps the first entry plus a `country_count`; any agency with `country_count > 1` is
+carrying a simplification, disclosed here rather than resolved in v1.
+
+**Nullable numeric fields flattened through pandas carry a float artifact** (`15.0`, `2020.0`)
+because pandas promotes integer columns containing nulls to float before stringification. The
+artifact is normalized in the staging layer, and the pattern is documented so new columns get
+checked for it.
 
 **Two candidate measures remain unconfirmed.** Payload mass and booster reuse are both desirable on
 the fact table but neither is confirmed obtainable. `payloads` returned an empty list in the
@@ -288,3 +301,4 @@ verified.
 |------|--------|
 | 2026-08-11 | Initial version, covering Phase 0 decisions and Phase 1 findings. |
 | 2026-08-20 | Scoping revised after full-history audit: orbital scope moved from `mission.orbit` to the vehicle classification seed with per-launch orbit override; non-Earth launches identified and excluded; integrity section replaced with full-history findings (7% missing orbits, provider-transparency pattern); duplicate configs and the P-21A source error recorded. |
+| 2026-08-26 | Pad location and celestial body added to bronze by re-flattening the raw archive. Celestial body found 11 Moon launches against the seed's 5: Apollo LM reclassified from `not_a_launch_vehicle` to `non_earth_launch`, and the two derivations now cross-validate (11 = 11). Reference snapshots (agencies, configurations) ingested from the development mirror with coverage verified against launch data. |
