@@ -121,3 +121,35 @@ Runtime Error
 [0m18:01:04.210035 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10c82f6e0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10ca303b0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10ca32300>]}
 [0m18:01:04.210183 [debug] [MainThread]: Flushing usage events
 [0m18:01:04.824330 [debug] [MainThread]: An error was encountered while trying to flush usage events
+[0m14:43:31.930118 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x105cc5070>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10674cc50>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10674c8c0>]}
+
+
+============================== 14:43:31.933169 | 0daa1ff4-5451-46d2-92f7-96f762da4068 ==============================
+[0m14:43:31.933169 [info ] [MainThread]: Running with dbt=1.12.0
+[0m14:43:31.933532 [debug] [MainThread]: running dbt with arguments {'hints_enabled': 'True', 'maximum_seed_size_mib': '1', 'cache_selected_only': 'False', 'use_experimental_parser': 'False', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'fail_fast': 'False', 'profiles_dir': '/Users/nacho/.dbt', 'static_parser': 'True', 'partial_parse': 'True', 'quiet': 'False', 'log_path': 'logs', 'use_colors': 'True', 'introspect': 'True', 'send_anonymous_usage_stats': 'True', 'write_json': 'True', 'no_print': 'None', 'target_path': 'None', 'printer_width': '80', 'invocation_command': "dbt show --inline select count(distinct l.provider_id) as providers_missing from {{ ref('stg_launches') }} l left join {{ source('bronze','agencies') }} a on l.provider_id = a.agency_id where a.agency_id is null", 'log_format': 'default', 'log_cache_events': 'False', 'warn_error': 'None', 'empty': 'None', 'indirect_selection': 'eager', 'debug': 'False', 'version_check': 'True'}
+[0m14:43:31.933809 [error] [MainThread]: [[31mERROR[0m]: Encountered an error:
+Runtime Error
+  No dbt_project.yml found at expected path /Users/nacho/azimuth/dbt_project.yml
+  Verify that each entry within packages.yml (and their transitive dependencies) contains a file named dbt_project.yml
+  
+[0m14:43:31.935608 [debug] [MainThread]: Resource report: {"command_name": "show", "command_success": false, "command_wall_clock_time": 0.049237583, "process_in_blocks": "0", "process_kernel_time": 0.15155, "process_mem_max_rss": "136527872", "process_out_blocks": "0", "process_user_time": 1.107113}
+[0m14:43:31.935855 [debug] [MainThread]: Command `dbt show` failed at 14:43:31.935809 after 0.05 seconds
+[0m14:43:31.936013 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10674cce0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10674e6f0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10674e990>]}
+[0m14:43:31.936157 [debug] [MainThread]: Flushing usage events
+[0m14:43:32.393551 [debug] [MainThread]: An error was encountered while trying to flush usage events
+[0m14:43:33.798606 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x106a2f1a0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x108137c20>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10815c0e0>]}
+
+
+============================== 14:43:33.800994 | 0b1f80a6-92ec-4433-aaca-4b1c0a4d0bb3 ==============================
+[0m14:43:33.800994 [info ] [MainThread]: Running with dbt=1.12.0
+[0m14:43:33.801291 [debug] [MainThread]: running dbt with arguments {'use_colors': 'True', 'use_experimental_parser': 'False', 'no_print': 'None', 'version_check': 'True', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'log_format': 'default', 'maximum_seed_size_mib': '1', 'printer_width': '80', 'debug': 'False', 'indirect_selection': 'eager', 'send_anonymous_usage_stats': 'True', 'partial_parse': 'True', 'cache_selected_only': 'False', 'static_parser': 'True', 'quiet': 'False', 'log_cache_events': 'False', 'warn_error': 'None', 'fail_fast': 'False', 'log_path': 'logs', 'introspect': 'True', 'invocation_command': "dbt show --inline select count(distinct l.config_id) as configs_missing from {{ ref('stg_launches') }} l left join {{ source('bronze','launcher_configurations') }} c on l.config_id = c.config_id where c.config_id is null", 'hints_enabled': 'True', 'write_json': 'True', 'profiles_dir': '/Users/nacho/.dbt', 'target_path': 'None', 'empty': 'None'}
+[0m14:43:33.801558 [error] [MainThread]: [[31mERROR[0m]: Encountered an error:
+Runtime Error
+  No dbt_project.yml found at expected path /Users/nacho/azimuth/dbt_project.yml
+  Verify that each entry within packages.yml (and their transitive dependencies) contains a file named dbt_project.yml
+  
+[0m14:43:33.802897 [debug] [MainThread]: Resource report: {"command_name": "show", "command_success": false, "command_wall_clock_time": 0.044766333, "process_in_blocks": "0", "process_kernel_time": 0.100978, "process_mem_max_rss": "134774784", "process_out_blocks": "0", "process_user_time": 1.048949}
+[0m14:43:33.803224 [debug] [MainThread]: Command `dbt show` failed at 14:43:33.803172 after 0.05 seconds
+[0m14:43:33.803386 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10815c4a0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10815e060>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10815dfd0>]}
+[0m14:43:33.803531 [debug] [MainThread]: Flushing usage events
+[0m14:43:34.111535 [debug] [MainThread]: An error was encountered while trying to flush usage events

@@ -8,3 +8,7 @@ sources:
     tables:
       - name: launches
         description: One row per launch attempt, merged on launch_id.
+      - name: agencies
+        description: Agency reference from the agencies endpoint, full snapshot.
+      - name: launcher_configurations
+        description: Launcher configuration reference, detailed mode, full snapshot.
