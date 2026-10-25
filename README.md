@@ -1,8 +1,8 @@
-# AZIMUTH — Launch Market BI Platform
+# AZIMUTH: Launch Market BI Platform
 
 A data analytics platform that tracks how the global launch market is evolving (cadence, reliability, reuse, mass to orbit, and market share) to assess where a new heavy-lift vehicle realistically stands against the field.
 
-**Status:** In active development. Phase 1 (bronze ingestion) complete as of 11 August 2026. Built as an end-to-end BI engineering project on Databricks.
+**Status:** In active development. Phases 0 to 3 (ingestion, silver, gold star schema) complete; Phase 4 (analysis marts) in progress. Built as an end-to-end BI engineering project on Databricks.
 
 ---
 
@@ -24,10 +24,10 @@ This project is built backward from a real business decision, not from the data.
 
 AZIMUTH ingests global launch data, models it into a clean analytical layer, and exposes it through an interactive product with four views:
 
-- **Market Overview** — the KPI dashboard.
-- **The Maturation Race** — every vehicle's reliability and cadence aligned to flight #1, with uncertainty bands.
-- **Scenario Simulator** — what-if projections of a vehicle's future market position.
-- **Ask AZIMUTH** *(v2)* — natural-language questions answered with a chart, grounded in the data.
+- **Market Overview:** the KPI dashboard.
+- **The Maturation Race:** every vehicle's reliability and cadence aligned to flight #1, with uncertainty bands.
+- **Scenario Simulator:** what-if projections of a vehicle's future market position.
+- **Ask AZIMUTH** *(v2)*: natural-language questions answered with a chart, grounded in the data.
 
 The platform is provider-agnostic: it models the whole market and lets any vehicle be set as the focus.
 
@@ -41,7 +41,7 @@ Data flows through a medallion (bronze → silver → gold) lakehouse architectu
 Launch Library 2 API
         │  (Python: paginated, throttled, resumable)
         ▼
-   raw/*.json  — immutable, date-stamped, one file per page
+   raw/*.json    immutable, date-stamped, one file per page
         │  (Python: flatten + lineage columns)
         ▼
    staging/launches.parquet
@@ -84,16 +84,23 @@ The fetch and the load are separate scripts. The API is rate limited to roughly 
 ```
 azimuth/
 ├── docs/
-│   └── scope.md              # grain, scope, outcome definitions, known limitations
-├── audit.ipynb               # Phase 0 exploratory data audit
-├── fetch_launches.py         # paginated, throttled, resumable API fetch → raw/
-├── flatten_launches.py       # nested JSON → flat parquet with lineage columns
-├── load_to_bronze.py         # upload to volume, MERGE into Delta, write audit row
-├── requirements.txt
-└── .gitignore
+│   └── scope.md                  # grain, scope, outcome definitions, known limitations
+├── fetch_launches.py             # paginated, throttled, resumable API fetch -> raw/
+├── flatten_launches.py           # nested JSON -> flat parquet with lineage columns
+├── load_to_bronze.py             # upload to volume, MERGE into Delta, write audit row
+├── fetch_reference.py            # agencies + launcher configurations -> raw_reference/
+├── flatten_reference.py          # raw_reference/ -> agencies, configurations, families parquet
+├── load_reference.py             # reference snapshots -> bronze (full replace)
+├── azimuth_dbt/
+│   ├── models/staging/           # stg_launches, stg_vehicle_families
+│   ├── models/marts/             # star schema + analysis marts (gold)
+│   ├── seeds/                    # vehicle_classification, family_overrides (reviewed)
+│   └── tests/                    # data tests beyond the schema.yml ones
+├── audit.ipynb                   # Phase 0 exploratory data audit
+└── .github/workflows/dbt.yml     # CI: dbt build on every push
 ```
 
-`raw/` and `staging/` are generated artefacts and are not tracked.
+`raw/`, `raw_reference/`, and `staging/` are generated data and are not tracked.
 
 ---
 
@@ -158,7 +165,7 @@ I used Claude throughout this project, and it is worth being specific about wher
 
 **Where it helped:** scaffolding the phase plan; writing first drafts of the ingestion scripts; explaining unfamiliar concepts (Unity Catalog volumes, MERGE semantics, survival analysis censoring); reviewing my reasoning and catching gaps; and rubber-ducking design decisions before I committed to them.
 
-**Where I did the work:** every scoping and modeling decision in `docs/scope.md` is mine. The choice to treat partial failures as their own category, to scope orbital via `mission.orbit` with Unknown as a third bucket, to identify vehicles by configuration rather than instance, and to split fetch from load, were decisions I made and can defend. I ran the data audit that produced them.
+**Where I did the work:** every scoping and modeling decision in `docs/scope.md` is mine. The choice to treat partial failures as their own category, to scope orbital launches by vehicle class after the audit showed the orbit field is missing for 7% of launches, to identify vehicles by configuration rather than instance, and to split fetch from load, were decisions I made and can defend. I ran the data audit that produced them.
 
 **Where it was wrong:** it guessed an API endpoint name that did not exist (`config/launch_status/` rather than `config/launch_statuses/`), and it misdiagnosed an SSL certificate failure as a Python version problem, which cost me an unnecessary reinstall. Both were caught by reading actual output rather than trusting the explanation.
 
@@ -168,14 +175,15 @@ The working pattern that came out of this: use it to move faster on things I und
 
 ## Roadmap
 
-- [x] Ingestion → bronze layer
-- [x] Load audit table
-- [ ] Re-run data-integrity checks against full history
-- [ ] dbt models → silver + gold (star schema)
-- [ ] Data quality tests
-- [ ] Core KPIs
-- [ ] Maturation Race visualization
-- [ ] Market Overview dashboard
+- [x] Ingestion into the bronze layer, with a load audit table
+- [x] Full-history data-integrity checks
+- [x] dbt silver layer with a reviewed vehicle classification seed
+- [x] Gold star schema (five dimensions, one fact) under tests and CI
+- [x] Vehicle families resolved, maturation and market marts
+- [ ] Statistical reliability model (survival or Bayesian) on top of the Wilson intervals
+- [ ] Scheduled refresh pipeline
+- [ ] Market Overview
+- [ ] Maturation Race
 - [ ] Scenario Simulator
 - [ ] Ask AZIMUTH (AI query layer, v2)
 
@@ -234,6 +242,25 @@ python load_to_bronze.py
 ```
 
 `load_to_bronze.py` is idempotent. Running it twice against the same source produces zero inserts and zero updates on the second run.
+
+**6. Reference data**
+
+```bash
+python fetch_reference.py      # agencies + launcher configurations, development mirror
+python flatten_reference.py    # rebuilds the reference parquet files from raw_reference/
+python load_reference.py
+```
+
+`flatten_reference.py` reads only the raw archive, so it can be re-run without calling the API.
+
+**7. Build and test the models**
+
+```bash
+cd azimuth_dbt
+dbt build
+```
+
+This loads the seeds, builds staging, the gold star schema and the analysis marts, and runs every test.
 
 ---
 

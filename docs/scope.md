@@ -189,32 +189,80 @@ is updated only when the incoming `last_updated` is newer).
 
 ### `net_precision` is carried on the fact table
 
-The API records how precise each `net` value is. For recent launches it is "Second." For historical
-records it may be "Month" or "Year."
+The API can record how precise each `net` value is. The original assumption was that historical
+records would carry coarse values like "Month" or "Year." The full history says otherwise: of
+7,598 launches, 6,180 have no precision recorded at all, 951 are "Second," 462 "Minute," 4 "Hour,"
+and 1 "Day." No launch is marked "Month" or "Year."
 
-A 1961 launch with a precision of "Year" cannot honestly be joined to a specific calendar date. Any
-monthly or daily aggregation that includes such records is wrong in a way nothing will flag. So
-`net_precision` is carried onto the fact table, and time-series views must decide explicitly
-whether to include coarse records rather than inheriting them by accident.
+So a null precision means "not recorded," not "coarse." `net_precision` still rides the fact table,
+and the yearly marts are unaffected, but any future monthly or daily view should treat null
+precision as unknown rather than assume a launch date is exact to the day.
 
 ---
 
+## Vehicle families
+
+Phase 0 parked configuration families as many-to-many. The Phase 4 recon of the raw configuration
+snapshot showed it is not: it is a hierarchy. A configuration lists its family plus every ancestor
+of that family. Falcon 9 Block 5 lists "Falcon" (the root) and "Falcon 9" (whose parent is
+"Falcon"). Titan configurations go three levels deep (Titan, Titan III, Titan IIIB). Of the 485
+configurations in launch data, every one with more than one family has exactly one root and one
+most specific family, with a single exception (Minotaur-C, listed under two roots).
+
+The family used for analysis is the most specific one. It is resolved in `stg_vehicle_families`:
+
+1. A reviewed override from `seeds/family_overrides.csv`, used for three Soyuz records the source
+   lists with no family (Soyuz-U, Soyuz FG, Soyuz-FG Fregat). This also settles the Soyuz U /
+   Soyuz-U duplicate: the two records stay separate configurations but share a family.
+2. Otherwise, the most specific family in the source hierarchy. When there are two candidates
+   (Minotaur-C), the one with a parent wins, then the longer and more specific name.
+3. Otherwise, the configuration's own name. 53 configurations, such as Space Shuttle and Electron,
+   have no family in the source and are their own family.
+
+The root family is kept as `family_root_name` for program-level grouping.
+
+### Configuration or family: the maturation unit
+
+The maturation analysis reports both lenses, with family as the default for the Maturation Race.
+
+A configuration is a specific hardware version. A family is a program. The difference matters for
+the question AZIMUTH answers. Falcon 9 Block 5 is nearly flawless from its first flight, but it
+inherited 57 flights of learning from v1.0 through Block 4, including the failures. Plotted beside
+a genuinely new vehicle, the configuration lens claims vehicles can be reliable immediately.
+
+The data shows the size of the effect. Among vehicles with 20 or more orbital flights, the median
+number of flights before the 95% lower bound on reliability reaches 80% is 16 under the
+configuration lens and 36.5 under the family lens.
+
+## Reliability definitions
+
+- **Reliability** is strict: successes divided by orbital launch attempts. Partial failures are
+  not successes, and are counted separately so views can show them.
+- **The interval** is a 95% Wilson score interval. A vehicle with 3 successes in 3 flights has a
+  point estimate of 100% that says almost nothing; the interval says so. A perfect record needs
+  about 35 flights before the lower bound reaches 90%.
+- **Flights to proven reliability** is the flight number at which the lower bound first reached
+  80% (or 90%). It answers "how fast do vehicles earn reliability" in terms of evidence rather
+  than a point estimate.
+- The maturation analysis covers orbital launch attempts only (`scope_class = 'orbital'`), so
+  suborbital flights of orbital-class vehicles (HASTE on Electron, early Starship test flights)
+  are excluded from those vehicles' curves.
+
+A proper survival or Bayesian reliability model is a planned upgrade. The Wilson interval is the
+first pass because it is simple, well understood, and computable in SQL.
+
+### Open decision: failures before launch
+
+Two records are failures that happened before liftoff: Apollo 1 (the 1967 cabin fire during a
+ground test) and Amos-6 (the 2016 Falcon 9 explosion during a pre-launch static fire). The source
+records both as launch failures. Industry convention does not count either as a launch attempt.
+They are currently included as the source has them; excluding them would be a one-line seed.
+
 ## Not modeled in v1
 
-Two relationships in the source are genuinely many-to-many:
-
-- **`program`** is a list on the launch. A launch can belong to zero, one, or several programs
-  (Artemis, Commercial Crew, and so on).
-- **`families`** is a list on the launcher configuration. A configuration can belong to more than
-  one family.
-
-Both would need bridge tables. They are parked for a later version rather than being flattened into
-a single value, which would misrepresent the source.
-
-A related open question, deliberately not answered in v1: whether the maturation analysis should
-group by configuration or by family. Falcon 9 v1.0, v1.1, and Block 5 are separate configurations
-of one family, and the reliability picture looks materially different depending on which unit is
-chosen. v1 uses the configuration.
+**`program`** is a list on the launch. A launch can belong to zero, one, or several programs
+(Artemis, Commercial Crew, and so on). It would need a bridge table and is parked for a later
+version rather than being flattened into a single value, which would misrepresent the source.
 
 ---
 
@@ -302,3 +350,4 @@ verified.
 | 2026-08-11 | Initial version, covering Phase 0 decisions and Phase 1 findings. |
 | 2026-08-20 | Scoping revised after full-history audit: orbital scope moved from `mission.orbit` to the vehicle classification seed with per-launch orbit override; non-Earth launches identified and excluded; integrity section replaced with full-history findings (7% missing orbits, provider-transparency pattern); duplicate configs and the P-21A source error recorded. |
 | 2026-08-26 | Pad location and celestial body added to bronze by re-flattening the raw archive. Celestial body found 11 Moon launches against the seed's 5: Apollo LM reclassified from `not_a_launch_vehicle` to `non_earth_launch`, and the two derivations now cross-validate (11 = 11). Reference snapshots (agencies, configurations) ingested from the development mirror with coverage verified against launch data. |
+| 2026-10-24 | Phase 4: configuration families resolved as a hierarchy (not many-to-many) with a reviewed override seed; family chosen as the default maturation unit with configuration as the second lens; reliability defined as strict success rate with a 95% Wilson interval; `net_precision` finding corrected (null means not recorded, no Month or Year values exist); pre-launch failures (Apollo 1, Amos-6) recorded as an open decision. |
