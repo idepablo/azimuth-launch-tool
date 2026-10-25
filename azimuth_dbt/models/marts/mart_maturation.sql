@@ -87,7 +87,10 @@ numbered as (
         row_number() over (
             partition by lens, unit_key
             order by launched_at, launch_id
-        ) as flight_number
+        ) as flight_number,
+        min(launched_at) over (
+            partition by lens, unit_key
+        ) as unit_first_flight_at
     from by_lens
 
 ),
@@ -129,7 +132,36 @@ select
     lens,
     unit_key,
     unit_name,
+
+    -- era of the vehicle, by its first flight, so the debut curve can
+    -- compare like with like (a 1960s debut and a 2020s debut differ)
+    case
+        when year(unit_first_flight_at) < 1980 then '1957-1979'
+        when year(unit_first_flight_at) < 2000 then '1980-1999'
+        else '2000-present'
+    end                                                 as era,
+
     flight_number,
+
+    -- flight bands for the debut curve: single flights while evidence
+    -- is thin, wider bands once vehicles are established
+    case
+        when flight_number <= 5   then flight_number
+        when flight_number <= 10  then 6
+        when flight_number <= 20  then 11
+        when flight_number <= 50  then 21
+        when flight_number <= 100 then 51
+        else 101
+    end                                                 as flight_band_start,
+    case
+        when flight_number <= 5   then cast(flight_number as string)
+        when flight_number <= 10  then '6-10'
+        when flight_number <= 20  then '11-20'
+        when flight_number <= 50  then '21-50'
+        when flight_number <= 100 then '51-100'
+        else '101+'
+    end                                                 as flight_band,
+
     launch_id,
     launch_name,
     launched_at,

@@ -7,6 +7,15 @@
 -- rather than a point estimate. Null means the vehicle has not got there.
 --
 -- is_active: flew in the 24 months before the latest launch in the data.
+--
+-- expected_successes: how many successes a typical vehicle would have
+-- logged over the same flights, given where each flight sat in its life
+-- (flight band) and the vehicle's era. It is the debut curve applied
+-- flight by flight, leave-one-out: the vehicle's own flights are removed
+-- from the benchmark, so Soyuz is not compared with itself. Where the
+-- vehicle is alone in its era for a band, the all-era rate is used.
+-- reliability_vs_expected is the gap in reliability points: positive
+-- means ahead of a typical vehicle at the same stage of life.
 
 with maturation as (
 
@@ -41,6 +50,68 @@ latest as (
 
 ),
 
+band_totals as (
+
+    select
+        lens,
+        era,
+        flight_band_start,
+        count(*)                                              as attempts,
+        sum(case when outcome = 'success' then 1 else 0 end)  as successes
+    from maturation
+    group by lens, era, flight_band_start
+
+),
+
+band_totals_all_eras as (
+
+    select
+        lens,
+        flight_band_start,
+        count(*)                                              as attempts,
+        sum(case when outcome = 'success' then 1 else 0 end)  as successes
+    from maturation
+    group by lens, flight_band_start
+
+),
+
+unit_bands as (
+
+    select
+        lens,
+        unit_key,
+        era,
+        flight_band_start,
+        count(*)                                              as attempts,
+        sum(case when outcome = 'success' then 1 else 0 end)  as successes
+    from maturation
+    group by lens, unit_key, era, flight_band_start
+
+),
+
+expected as (
+
+    select
+        u.lens,
+        u.unit_key,
+        sum(
+            u.attempts * coalesce(
+                cast(e.successes - u.successes as double) / nullif(e.attempts - u.attempts, 0),
+                cast(a.successes - u.successes as double) / nullif(a.attempts - u.attempts, 0)
+            )
+        ) as expected_successes
+    from unit_bands u
+    join band_totals e
+        on u.lens = e.lens
+        and u.era = e.era
+        and u.flight_band_start = e.flight_band_start
+    join band_totals_all_eras a
+        on u.lens = a.lens
+        and u.flight_band_start = a.flight_band_start
+    group by u.lens, u.unit_key
+
+),
+
 milestones as (
 
     select
@@ -60,6 +131,7 @@ select
     l.lens,
     l.unit_key,
     l.unit_name,
+    l.era,
     l.flight_number                                   as flights,
     l.cum_successes                                   as successes,
     l.cum_failures                                    as failures,
@@ -72,6 +144,9 @@ select
     m.first_success_flight,
     m.flights_to_lb_80,
     m.flights_to_lb_90,
+    x.expected_successes,
+    x.expected_successes / l.flight_number            as expected_reliability,
+    l.cum_reliability - x.expected_successes / l.flight_number as reliability_vs_expected,
     m.latest_flight_at >= a.data_as_of - interval 730 days   as is_active,
     a.data_as_of
 
@@ -79,4 +154,7 @@ from latest l
 join milestones m
     on l.lens = m.lens
     and l.unit_key = m.unit_key
+join expected x
+    on l.lens = x.lens
+    and l.unit_key = x.unit_key
 cross join as_of a

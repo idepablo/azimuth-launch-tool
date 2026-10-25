@@ -180,7 +180,7 @@ The working pattern that came out of this: use it to move faster on things I und
 - [x] dbt silver layer with a reviewed vehicle classification seed
 - [x] Gold star schema (five dimensions, one fact) under tests and CI
 - [x] Vehicle families resolved, maturation and market marts
-- [ ] Statistical reliability model (survival or Bayesian) on top of the Wilson intervals
+- [x] Maturity-adjusted reliability: debut curve, opening-run survival (Kaplan-Meier), per-vehicle benchmark
 - [ ] Scheduled refresh pipeline
 - [ ] Market Overview
 - [ ] Maturation Race

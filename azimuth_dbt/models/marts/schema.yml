@@ -144,6 +144,15 @@ models:
           - accepted_values:
               arguments:
                 values: ['success', 'failure', 'partial_failure']
+      - name: era
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['1957-1979', '1980-1999', '2000-present']
+      - name: flight_band
+        tests:
+          - not_null
 
   - name: mart_vehicle_reliability
     description: >
@@ -154,5 +163,53 @@ models:
         tests:
           - not_null
       - name: unit_key
+        tests:
+          - not_null
+      - name: expected_successes
+        description: >
+          Successes a typical vehicle would have logged over the same flights,
+          given flight band and era (leave-one-out debut curve).
+        tests:
+          - not_null
+      - name: era
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['1957-1979', '1980-1999', '2000-present']
+
+  - name: mart_debut_curve
+    description: >
+      Success rate by flight band (how far into its life a vehicle is), per
+      lens and era, with a 95% Wilson interval. era = 'all' pools every era.
+    columns:
+      - name: era
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['all', '1957-1979', '1980-1999', '2000-present']
+      - name: flight_band
+        tests:
+          - not_null
+      - name: success_rate
+        tests:
+          - not_null
+
+  - name: mart_failure_free_survival
+    description: >
+      Kaplan-Meier probability that a vehicle flies its first n flights
+      without a failure, per lens and era, with a 95% log-log Greenwood band.
+    columns:
+      - name: era
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['all', '1957-1979', '1980-1999', '2000-present']
+      - name: survival
+        tests:
+          - not_null
+      - name: vehicles_at_risk
         tests:
           - not_null

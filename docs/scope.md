@@ -252,9 +252,6 @@ configuration lens and 36.5 under the family lens.
   suborbital flights of orbital-class vehicles (HASTE on Electron, early Starship test flights)
   are excluded from those vehicles' curves.
 
-A proper survival or Bayesian reliability model is a planned upgrade. The Wilson interval is the
-first pass because it is simple, well understood, and computable in SQL.
-
 ### Failures before launch
 
 Two records are failures that happened before liftoff. The source records both as launch failures.
@@ -273,6 +270,47 @@ suborbital).
 Keeping Amos-6 lowers the Falcon 9 family reliability from 99.6% to 99.4%. The application's
 methodology page discloses this, so a reader who follows the stricter convention can see the
 difference.
+
+## Maturity-adjusted reliability
+
+A vehicle's record only means something next to vehicles at the same stage of life. Three models
+build on the Wilson intervals to make that comparison. All three are SQL, rebuilt and tested on
+every deploy.
+
+**The debut curve** (`mart_debut_curve`) is the success rate by flight band: flights 1 to 5 one at
+a time, then 6-10, 11-20, 21-50, 51-100 and 101+. It is split by era of the vehicle's first flight
+(1957-1979, 1980-1999, 2000-present), with `all` pooling every era. Under the family lens, a first
+flight succeeds 57.8% of the time. Past flight 100 the rate is 97.0%. Under the configuration lens
+the first flight succeeds 78.5% of the time, which is the inheritance effect again: a new
+configuration of an existing family is not a new vehicle.
+
+**The opening-run survival curve** (`mart_failure_free_survival`) is a Kaplan-Meier estimate of the
+probability that a vehicle flies its first n flights without a failure (or partial failure). A
+vehicle that has never failed is censored at its latest flight rather than counted as a vehicle
+that will never fail. Under the family lens, 37.5% of vehicles get through their first five flights
+clean and 19.4% through their first ten. The median opening run ends on flight 3. The 95% band uses
+Greenwood's variance on the log-log scale. The model output was checked against the Python
+`lifelines` library on all eight curves (two lenses, four eras) and agrees to within 0.00001.
+
+**The benchmark** (columns on `mart_vehicle_reliability`) applies the debut curve flight by flight
+to each vehicle. `expected_successes` is how many successes a typical vehicle of the same era would
+have logged over the same flights; `reliability_vs_expected` is the gap in reliability points. The
+benchmark is leave-one-out: the vehicle's own flights are removed from the rates it is compared
+against, so Soyuz is not measured against itself. Where a vehicle is alone in its era for a band,
+the all-era rate is used.
+
+Two limits belong on the methodology page:
+
+- **Survivorship.** Retirement is not random. Vehicles that fail often are cancelled, so late bands
+  are made of survivors, and long-lived vehicles tend to sit above the benchmark (35 of the 51
+  families with 20 or more flights do). The benchmark is fairest between vehicles with similar
+  flight counts.
+- **Why not a Bayesian prior.** An empirical-Bayes beta-binomial (one prior fitted across all
+  vehicles, then each record shrunk toward it) was tested and not adopted. Vehicles are too
+  different for a single prior to carry information: the fitted prior was worth between 1 and 9
+  flights depending on the cutoff, so it barely moved any estimate the Wilson interval does not
+  already describe. Where a vehicle is in its life explains far more than a common prior, which is
+  what the debut curve captures.
 
 ## Not modeled in v1
 
@@ -368,3 +406,4 @@ verified.
 | 2026-08-26 | Pad location and celestial body added to bronze by re-flattening the raw archive. Celestial body found 11 Moon launches against the seed's 5: Apollo LM reclassified from `not_a_launch_vehicle` to `non_earth_launch`, and the two derivations now cross-validate (11 = 11). Reference snapshots (agencies, configurations) ingested from the development mirror with coverage verified against launch data. |
 | 2026-10-24 | Phase 4: configuration families resolved as a hierarchy (not many-to-many) with a reviewed override seed; family chosen as the default maturation unit with configuration as the second lens; reliability defined as strict success rate with a 95% Wilson interval; `net_precision` finding corrected (null means not recorded, no Month or Year values exist); pre-launch failures (Apollo 1, Amos-6) recorded as an open decision. |
 | 2026-10-25 | Failures before launch decided: Apollo 1 excluded through the `launch_exclusions` seed (new `scope_class` value `pre_launch_failure`), Amos-6 kept and disclosed. |
+| 2026-10-25 | Maturity-adjusted reliability: debut curve by flight band and era, Kaplan-Meier opening-run survival (verified against `lifelines`), and a leave-one-out benchmark per vehicle; empirical-Bayes prior tested and not adopted, with the reason recorded. |
