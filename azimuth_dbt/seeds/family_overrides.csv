@@ -1,0 +1,4 @@
+config_id,config_name,family_name,reason
+101,Soyuz-U,Soyuz,"Source lists no family; same vehicle as config 37 (Soyuz U), which belongs to Soyuz"
+34,Soyuz,Soyuz,"Source lists no family; full name is Soyuz FG, a Soyuz variant"
+70,Soyuz-FG,Soyuz,"Source lists no family; Soyuz-FG Fregat, a Soyuz variant"

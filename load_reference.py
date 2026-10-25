@@ -16,6 +16,7 @@ VOLUME_PATH = f"/Volumes/{CATALOG}/{SCHEMA}/raw"
 TABLES = {
     "agencies": "staging/agencies.parquet",
     "launcher_configurations": "staging/configurations.parquet",
+    "launcher_families": "staging/configuration_families.parquet",
 }
 
 

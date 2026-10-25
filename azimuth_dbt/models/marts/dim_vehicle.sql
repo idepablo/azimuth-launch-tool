@@ -1,10 +1,11 @@
 -- Vehicle dimension: one row per launcher configuration.
 -- Classification from the curated seed; full_name/variant/manufacturer
 -- from the configurations reference snapshot. Display names can be
--- shared across configurations (Falcon 9 covers five) — full_name is
--- the disambiguated form. True duplicate records (Soyuz U / Soyuz-U)
--- remain separate ids; canonicalization is deferred until the
--- maturation analysis needs it.
+-- shared across configurations (Falcon 9 covers five); full_name is
+-- the disambiguated form. family_name is the most specific vehicle
+-- family (see stg_vehicle_families) and is the unit for the family
+-- lens of the maturation analysis. Duplicate records for one vehicle
+-- (Soyuz U / Soyuz-U) stay separate ids but share a family.
 
 with launches as (
 
@@ -21,6 +22,12 @@ classification as (
 configurations as (
 
     select * from {{ source('bronze', 'launcher_configurations') }}
+
+),
+
+families as (
+
+    select * from {{ ref('stg_vehicle_families') }}
 
 ),
 
@@ -44,6 +51,9 @@ select
     coalesce(cfg.full_name, l.vehicle_name)      as vehicle_full_name,
     cfg.variant,
     cfg.manufacturer_name,
+    fam.family_name,
+    fam.family_root_name,
+    fam.family_source,
     c.vehicle_class,
     cast(cfg.reusable as boolean)                as is_reusable,
     cast(cfg.maiden_flight as date)              as maiden_flight,
@@ -57,3 +67,5 @@ left join classification c
     on l.vehicle_key = c.config_id
 left join configurations cfg
     on l.vehicle_key = cfg.config_id
+left join families fam
+    on l.vehicle_key = fam.config_id

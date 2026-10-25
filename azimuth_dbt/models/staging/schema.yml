@@ -21,3 +21,15 @@ models:
               arguments:
                 to: ref('vehicle_classification')
                 field: config_id
+  - name: stg_vehicle_families
+    description: >
+      One row per launched configuration with its resolved vehicle family.
+      Source hierarchy leaf, reviewed override, or own-name fallback.
+    columns:
+      - name: config_id
+        tests:
+          - unique
+          - not_null
+      - name: family_name
+        tests:
+          - not_null
