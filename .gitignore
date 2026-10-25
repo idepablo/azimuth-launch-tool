@@ -1,7 +1,20 @@
+# Python
 .venv/
 __pycache__/
 .ipynb_checkpoints/
+
+# Credentials
 .env
-raw/
+
+# Generated data (rebuilt by the fetch and flatten scripts)
+/raw/
+/raw_reference/
+/staging/
 fetch_state.json
-/staging/.DS_Store
+
+# Tool output
+/logs/
+.Rhistory
+
+# macOS
+.DS_Store

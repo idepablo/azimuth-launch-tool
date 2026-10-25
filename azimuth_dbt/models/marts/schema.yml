@@ -2,6 +2,7 @@ version: 2
 
 models:
   - name: dim_date
+    description: One row per calendar day, 1957 through 2030. Generated from SQL.
     columns:
       - name: date_key
         tests:
@@ -9,6 +10,7 @@ models:
           - not_null
 
   - name: dim_provider
+    description: One row per launch provider, enriched from the agencies snapshot.
     columns:
       - name: provider_key
         tests:
@@ -16,6 +18,9 @@ models:
           - not_null
 
   - name: dim_vehicle
+    description: >
+      One row per launcher configuration. Carries the curated vehicle class,
+      the disambiguated full name, and the resolved vehicle family.
     columns:
       - name: vehicle_key
         tests:
@@ -24,5 +29,130 @@ models:
       - name: vehicle_class
         tests:
           - not_null
+      - name: family_name
+        description: Most specific vehicle family; the unit of the family lens.
+        tests:
+          - not_null
+      - name: family_source
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['override', 'source', 'fallback_config_name']
 
   - name: dim_orbit
+    description: >
+      One row per orbit observed in launch data, plus an explicit
+      Not published member (-1) for launches with no orbit.
+    columns:
+      - name: orbit_key
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_launch_site
+    description: One row per launch site (location). Pads roll up to sites.
+    columns:
+      - name: location_key
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_launches
+    description: One row per launch attempt.
+    columns:
+      - name: launch_id
+        tests:
+          - unique
+          - not_null
+      - name: date_key
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: provider_key
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_provider')
+                field: provider_key
+      - name: vehicle_key
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_vehicle')
+                field: vehicle_key
+      - name: orbit_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_orbit')
+                field: orbit_key
+      - name: location_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_launch_site')
+                field: location_key
+
+  - name: mart_cadence_yearly
+    description: >
+      Orbital launch attempts per year and provider, with the three-way
+      outcome split. The latest year is flagged as partial.
+    columns:
+      - name: launch_year
+        tests:
+          - not_null
+      - name: provider_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_provider')
+                field: provider_key
+      - name: attempts
+        tests:
+          - not_null
+
+  - name: mart_market_share_yearly
+    description: Share of orbital attempts and of successes per year and provider.
+    columns:
+      - name: share_of_attempts
+        tests:
+          - not_null
+
+  - name: mart_maturation
+    description: >
+      One row per orbital launch per lens (configuration, family), numbered
+      by flight in the vehicle's life, with cumulative reliability and a
+      95% Wilson score interval.
+    columns:
+      - name: lens
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['configuration', 'family']
+      - name: unit_key
+        tests:
+          - not_null
+      - name: outcome
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['success', 'failure', 'partial_failure']
+
+  - name: mart_vehicle_reliability
+    description: >
+      One row per vehicle per lens: current reliability record, interval,
+      and the flight numbers at which the lower bound first reached 80% and 90%.
+    columns:
+      - name: lens
+        tests:
+          - not_null
+      - name: unit_key
+        tests:
+          - not_null
