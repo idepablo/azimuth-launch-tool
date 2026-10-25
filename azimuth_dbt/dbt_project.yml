@@ -39,6 +39,9 @@ seeds:
     family_overrides:
       +column_types:
         config_id: string
+    launch_exclusions:
+      +column_types:
+        launch_id: string
 
 models:
   azimuth_dbt:

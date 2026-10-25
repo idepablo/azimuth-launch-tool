@@ -13,7 +13,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['orbital', 'suborbital', 'non_earth_launch', 'not_a_launch_vehicle', 'unclassified']
+                values: ['orbital', 'suborbital', 'non_earth_launch', 'not_a_launch_vehicle', 'pre_launch_failure', 'unclassified']
       - name: config_id
         tests:
           - not_null

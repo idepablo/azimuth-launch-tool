@@ -1,0 +1,2 @@
+launch_id,launch_name,exclusion_class,reason
+a49d791b-3c7f-4ee9-8917-14596a2a1a25,Saturn IB | Apollo 1 (Failure before launch),pre_launch_failure,Command module cabin fire during a ground test; the Saturn IB was not involved and never left the pad. Counting it would wrongly charge the vehicle with a failure.

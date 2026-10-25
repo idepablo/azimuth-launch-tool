@@ -76,6 +76,10 @@ Classes:
 | `non_earth_launch` | 3 | 11 | Launches not from Earth (see below) |
 | `not_a_launch_vehicle` | 0 | 0 | Kept as a legal class; currently empty (see Apollo LM below) |
 
+These are vehicle classes. The per-launch `scope_class` starts from them and adds two overrides:
+`suborbital` where the launch's orbit says so, and `pre_launch_failure` for reviewed records that
+never left the pad (see Failures before launch).
+
 ### Non-Earth launches
 
 The source tracks launches from other celestial bodies. Eleven records in the dataset are **ascent
@@ -251,12 +255,24 @@ configuration lens and 36.5 under the family lens.
 A proper survival or Bayesian reliability model is a planned upgrade. The Wilson interval is the
 first pass because it is simple, well understood, and computable in SQL.
 
-### Open decision: failures before launch
+### Failures before launch
 
-Two records are failures that happened before liftoff: Apollo 1 (the 1967 cabin fire during a
-ground test) and Amos-6 (the 2016 Falcon 9 explosion during a pre-launch static fire). The source
-records both as launch failures. Industry convention does not count either as a launch attempt.
-They are currently included as the source has them; excluding them would be a one-line seed.
+Two records are failures that happened before liftoff. The source records both as launch failures.
+They are treated differently because only one of them is a failure of the launch vehicle.
+
+| Record | Decision | Why |
+|--------|----------|-----|
+| Apollo 1 (Saturn IB, 1967) | Excluded | A cabin fire in the command module during a ground test. The Saturn IB was not the cause and never left the pad. Counting it charges the vehicle with a failure it did not have. |
+| Amos-6 (Falcon 9, 2016) | Kept | The vehicle itself failed during a pre-launch static fire and destroyed the customer payload. That is a vehicle failure a customer would weigh, even though most launch logs do not count it as an attempt. |
+
+Apollo 1 is excluded through a reviewed seed (`launch_exclusions`) that sets its `scope_class` to
+`pre_launch_failure`. The row stays in `fct_launches`, traceable, and drops out of every orbital
+mart. With it removed, the Saturn IB orbital record is 7 for 7 (its other two flights were
+suborbital).
+
+Keeping Amos-6 lowers the Falcon 9 family reliability from 99.6% to 99.4%. The application's
+methodology page discloses this, so a reader who follows the stricter convention can see the
+difference.
 
 ## Not modeled in v1
 
@@ -351,3 +367,4 @@ verified.
 | 2026-08-20 | Scoping revised after full-history audit: orbital scope moved from `mission.orbit` to the vehicle classification seed with per-launch orbit override; non-Earth launches identified and excluded; integrity section replaced with full-history findings (7% missing orbits, provider-transparency pattern); duplicate configs and the P-21A source error recorded. |
 | 2026-08-26 | Pad location and celestial body added to bronze by re-flattening the raw archive. Celestial body found 11 Moon launches against the seed's 5: Apollo LM reclassified from `not_a_launch_vehicle` to `non_earth_launch`, and the two derivations now cross-validate (11 = 11). Reference snapshots (agencies, configurations) ingested from the development mirror with coverage verified against launch data. |
 | 2026-10-24 | Phase 4: configuration families resolved as a hierarchy (not many-to-many) with a reviewed override seed; family chosen as the default maturation unit with configuration as the second lens; reliability defined as strict success rate with a 95% Wilson interval; `net_precision` finding corrected (null means not recorded, no Month or Year values exist); pre-launch failures (Apollo 1, Amos-6) recorded as an open decision. |
+| 2026-10-25 | Failures before launch decided: Apollo 1 excluded through the `launch_exclusions` seed (new `scope_class` value `pre_launch_failure`), Amos-6 kept and disclosed. |

@@ -15,6 +15,13 @@ classified as (
 
 ),
 
+-- reviewed per-launch exclusions (docs/scope.md, failures before launch)
+exclusions as (
+
+    select * from {{ ref('launch_exclusions') }}
+
+),
+
 casted as (
 
     select
@@ -88,10 +95,12 @@ select
     -- vehicle-level classification from the curated seed
     c.vehicle_class,
 
-    -- scoping rule from scope.md: vehicle class is the default,
-    -- the per-launch orbit field overrides it where it explicitly
-    -- says Suborbital (orbit_id 15), covering mixed-regime configs
+    -- scoping rule from scope.md: a reviewed per-launch exclusion wins,
+    -- then the per-launch orbit field where it explicitly says Suborbital
+    -- (orbit_id 15), then the vehicle class. Excluded rows stay in the
+    -- table, traceable, but drop out of every orbital mart.
     case
+        when e.launch_id is not null then e.exclusion_class
         when f.orbit_id = '15' then 'suborbital'
         else coalesce(c.vehicle_class, 'unclassified')
     end as scope_class
@@ -99,3 +108,5 @@ select
 from flagged f
 left join classified c
     on f.config_id = c.config_id
+left join exclusions e
+    on f.launch_id = e.launch_id
