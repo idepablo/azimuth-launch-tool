@@ -33,3 +33,12 @@ def table(name):
 @st.cache_data(ttl=3600, show_spinner=False)
 def manifest():
     return json.loads(_read("manifest.json"))
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def backtest():
+    """Simulator backtest results (analysis/backtest.py), or None if not published yet."""
+    try:
+        return json.loads(_read("backtest.json"))
+    except Exception:
+        return None

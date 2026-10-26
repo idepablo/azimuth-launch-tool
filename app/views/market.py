@@ -37,29 +37,43 @@ prev_attempts = int(last_year["attempts"].sum())
 leader = this_year.iloc[0]
 
 # ---- key figures -----------------------------------------------------------
+market_rate = successes / attempts
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Orbital attempts", f"{attempts:,}",
-          delta=f"{attempts - prev_attempts:+,} vs {year - 1}" if prev_attempts else None,
-          delta_color="off" if year in partial_years else "normal")
-c2.metric("Success rate", ui.pct(successes / attempts), help="Full successes divided by attempts. "
-          "Partial failures do not count as successes.")
 
 if focus:
+    # the provider's own numbers lead; the whole market is the context line
     mine = this_year[this_year["provider_name"] == focus]
-    if len(mine):
-        row = mine.iloc[0]
-        rank = int(this_year["attempts"].rank(ascending=False, method="min")[mine.index[0]])
-        c3.metric(f"{focus} share", ui.pct(row["share_of_attempts"]),
-                  help="Share of the year's orbital attempts.")
-        c4.metric(f"{focus} rank", f"#{rank} of {len(this_year)}",
-                  help=f"{int(row['attempts'])} attempts, {int(row['successes'])} successes.")
-    else:
-        c3.metric(f"{focus} share", "0%", help=f"No orbital attempts by {focus} in {year}.")
-        c4.metric("Providers that launched", f"{len(this_year)}")
+    mine_prev = last_year[last_year["provider_name"] == focus]
+    n = int(mine["attempts"].sum())
+    ok = int(mine["successes"].sum())
+    n_prev = int(mine_prev["attempts"].sum())
+    rank = (int(this_year["attempts"].rank(ascending=False, method="min")[mine.index[0]])
+            if len(mine) else None)
+
+    c1.metric(f"{focus} orbital attempts", f"{n:,}",
+              delta=f"{n - n_prev:+,} vs {year - 1}" if (n or n_prev) else None,
+              delta_color="off" if year in partial_years else "normal")
+    c1.caption(f"All providers: {attempts:,}")
+    c2.metric(f"{focus} success rate", ui.pct(ok / n) if n else "n/a",
+              help=f"{ok} of {n} attempts fully successful. Partial failures do not count.")
+    c2.caption(f"All providers: {ui.pct(market_rate)}")
+    c3.metric(f"{focus} share", ui.pct(n / attempts), help="Share of the year's orbital attempts.")
+    c3.caption(f"of {attempts:,} attempts by all providers")
+    c4.metric(f"{focus} rank", f"#{rank}" if rank else "none")
+    c4.caption(f"of {len(this_year)} providers that launched" if rank
+               else f"no orbital attempts in {year}")
 else:
     top_two = this_year.head(2)["share_of_attempts"].sum()
+    c1.metric("Orbital attempts", f"{attempts:,}",
+              delta=f"{attempts - prev_attempts:+,} vs {year - 1}" if prev_attempts else None,
+              delta_color="off" if year in partial_years else "normal")
+    c1.caption("All providers")
+    c2.metric("Success rate", ui.pct(market_rate), help="Full successes divided by attempts. "
+              "Partial failures do not count as successes.")
+    c2.caption("All providers")
     c3.metric("Largest provider", leader["provider_name"],
               help=f"{ui.pct(leader['share_of_attempts'])} of the year's attempts.")
+    c3.caption(f"{ui.pct(leader['share_of_attempts'])} of attempts")
     c4.metric("Providers that launched", f"{len(this_year)}",
               help=f"The two largest account for {ui.pct(top_two)} of attempts.")
 
@@ -70,37 +84,67 @@ if year in partial_years:
 left, right = st.columns([3, 2], gap="large")
 
 with left:
-    st.subheader("Orbital attempts per year")
+    st.subheader("Orbital attempts per year, all providers" if focus else "Orbital attempts per year")
     start, end = st.slider("Years", int(share["launch_year"].min()), int(share["launch_year"].max()),
                            (2000, int(share["launch_year"].max())), label_visibility="collapsed")
     window = share[share["launch_year"].between(start, end)]
+    x = alt.X("launch_year:O", title=None, axis=alt.Axis(labelAngle=0, labelOverlap=True))
 
-    # the busiest providers in the window get their own color; the focus
-    # provider always does, and always in amber
-    top = (window.groupby("provider_name")["attempts"].sum()
-           .sort_values(ascending=False).head(5).index.tolist())
     if focus:
-        top = [focus] + [p for p in top if p != focus][:4]
-    window = window.assign(provider=window["provider_name"].where(
-        window["provider_name"].isin(top), "Everyone else"))
+        # two groups only: the focus provider and everyone else, so the bar
+        # height is clearly the whole market and the amber part is theirs
+        others = f"All other providers"
+        window = window.assign(provider=window["provider_name"].where(
+            window["provider_name"] == focus, others))
+        order = [focus, others]
+        palette = [ui.AMBER, "#3A4656"]
+    else:
+        # the busiest providers in the window get their own color
+        top = (window.groupby("provider_name")["attempts"].sum()
+               .sort_values(ascending=False).head(5).index.tolist())
+        window = window.assign(provider=window["provider_name"].where(
+            window["provider_name"].isin(top), "Everyone else"))
+        order = top + ["Everyone else"]
+        palette = ui.NEUTRAL[:len(top)] + [ui.GRID]
+
     by_year = (window.groupby(["launch_year", "provider", "is_partial_year"], as_index=False)
                ["attempts"].sum())
-    order = top + ["Everyone else"]
     by_year["provider_rank"] = by_year["provider"].map(order.index)
     by_year["alpha"] = by_year["is_partial_year"].map({True: 0.4, False: 1.0})
+    by_year["year_total"] = by_year.groupby("launch_year")["attempts"].transform("sum")
 
-    palette = ([ui.AMBER] + ui.NEUTRAL[:len(top) - 1]) if focus else ui.NEUTRAL[:len(top)]
     chart = alt.Chart(by_year).mark_bar().encode(
-        x=alt.X("launch_year:O", title=None, axis=alt.Axis(labelAngle=0, labelOverlap=True)),
+        x=x,
         y=alt.Y("sum(attempts):Q", title="Attempts"),
-        color=alt.Color("provider:N", sort=order,
-                        scale=alt.Scale(domain=order, range=palette + [ui.GRID])),
+        color=alt.Color("provider:N", sort=order, scale=alt.Scale(domain=order, range=palette)),
         order=alt.Order("provider_rank:Q"),
         opacity=alt.Opacity("alpha:Q", scale=None, legend=None),
         tooltip=[alt.Tooltip("launch_year:O", title="Year"), alt.Tooltip("provider:N", title="Provider"),
-                 alt.Tooltip("attempts:Q", title="Attempts")],
+                 alt.Tooltip("attempts:Q", title="Attempts"),
+                 alt.Tooltip("year_total:Q", title="All providers")],
     )
-    ui.show(chart, 340)
+    ui.show(chart, 300 if focus else 340)
+
+    if focus:
+        # the provider on its own scale, so a small provider is still readable
+        own = (window[window["provider"] == focus]
+               .groupby(["launch_year", "is_partial_year"], as_index=False)[["attempts", "successes"]].sum())
+        years_df = pd.DataFrame({"launch_year": range(start, end + 1)})
+        own = years_df.merge(own, on="launch_year", how="left").fillna(
+            {"attempts": 0, "successes": 0, "is_partial_year": False})
+        own["alpha"] = own["is_partial_year"].map({True: 0.4, False: 1.0})
+        st.markdown(f"**{focus} only**")
+        own_chart = alt.Chart(own).mark_bar(color=ui.AMBER).encode(
+            x=x,
+            y=alt.Y("attempts:Q", title="Attempts", axis=alt.Axis(tickMinStep=1)),
+            opacity=alt.Opacity("alpha:Q", scale=None, legend=None),
+            tooltip=[alt.Tooltip("launch_year:O", title="Year"),
+                     alt.Tooltip("attempts:Q", title=f"{focus} attempts"),
+                     alt.Tooltip("successes:Q", title="Successes")])
+        labels = alt.Chart(own[own["attempts"] > 0]).mark_text(dy=-7, fontSize=11, color=ui.AMBER) \
+            .encode(x=x, y="attempts:Q", text="attempts:Q")
+        ui.show(own_chart + labels, 150)
+
     if end in partial_years:
         st.caption(f"Faded bar: {end} so far.")
 

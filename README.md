@@ -96,6 +96,7 @@ azimuth/
 ├── check_new_vehicles.py         # names vehicles missing from the classification seed
 ├── requirements-pipeline.txt     # minimal dependencies for the scheduled refresh
 ├── export_snapshot.py            # gold tables -> parquet snapshot for the app
+├── analysis/backtest.py          # tests the simulator against history at past cutoff dates
 ├── app/                          # Streamlit app (reads the snapshot, not Databricks)
 │   ├── streamlit_app.py          # entry point and navigation
 │   ├── views/                    # Market Overview, Maturation Race, Scenario Simulator, Methodology
@@ -197,6 +198,7 @@ The working pattern that came out of this: use it to move faster on things I und
 - [x] Maturation Race
 - [x] Scenario Simulator (Monte Carlo on the debut curve)
 - [x] Methodology page
+- [x] Simulator backtested against history (five cutoff dates, rerun on every deploy)
 - [ ] Ask AZIMUTH (AI query layer, v2)
 
 ---

@@ -344,6 +344,33 @@ Limits: GitHub disables scheduled workflows on a repository with no activity for
 Databricks token has an expiry date. Either one stops the refresh, and the freshness check is what
 makes that visible.
 
+## Simulator backtest
+
+The Scenario Simulator is checked against history by `analysis/backtest.py`, which reruns after
+every deploy and publishes its results with the app snapshot.
+
+**Method.** The data is frozen on 1 January of 2000, 2005, 2010, 2015 and 2020. At each date the
+benchmark (success rate by flight band and era) is rebuilt from earlier flights only. The
+simulator's model is run for every vehicle active at that date (family lens, typical performance),
+and its predictions are compared with what those vehicles did afterwards. Nothing after a cutoff is
+used to make a prediction. Dates are not tested, because they depend on the cadence the user enters.
+
+**First results (2026-10-26 snapshot).**
+
+- Per-flight probability, 2,352 later flights by 131 vehicles (capped at 30 flights per vehicle so
+  long-lived vehicles do not dominate): predicted 94.4% on average, observed 95.2%. Every
+  probability range is within 4.4 points of its prediction. Brier score 0.0449, against 0.0681 for
+  each vehicle's own record (Laplace-smoothed) and 0.0469 for the market's overall rate.
+- Blending the vehicle's own record into the benchmark (weights of 5 to 80 flights) never beat the
+  benchmark alone. A vehicle's stage of life predicts its next flights better than its record does,
+  which supports the simulator's design.
+- "Next five flights all succeed": predicted 68.4% on average for 108 vehicles, observed 74.1%.
+  Partly selection: only vehicles that went on to fly five more times can be scored.
+- Flights until the lower bound reaches 80%: of 30 vehicles where the outcome is known, 27 crossed
+  inside the 80% range (90%), 1 earlier, 2 later. 49 more have not crossed and are still inside
+  their range, so they cannot be scored yet. The sample is small; the range looks, if anything,
+  slightly wide.
+
 ## Not modeled in v1
 
 **`program`** is a list on the launch. A launch can belong to zero, one, or several programs
@@ -441,3 +468,4 @@ verified.
 | 2026-10-25 | Failures before launch decided: Apollo 1 excluded through the `launch_exclusions` seed (new `scope_class` value `pre_launch_failure`), Amos-6 kept and disclosed. |
 | 2026-10-25 | Maturity-adjusted reliability: debut curve by flight band and era, Kaplan-Meier opening-run survival (verified against `lifelines`), and a leave-one-out benchmark per vehicle; empirical-Bayes prior tested and not adopted, with the reason recorded. |
 | 2026-10-26 | Phase 5: daily incremental refresh with page-by-page merge, completeness check against the API count (gap closed), source freshness, and a warning path for vehicles new since the last seed review. Pallas-1 added to the seed. |
+| 2026-10-26 | Simulator backtest added (five cutoffs, three checks), rerun on every deploy and shown on the app's Methodology page. |

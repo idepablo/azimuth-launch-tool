@@ -106,6 +106,8 @@ jobs:
         run: |
           pip install -r requirements-pipeline.txt
           python export_snapshot.py snapshot
+          # rerun the simulator backtest on the new data; the app shows it
+          python analysis/backtest.py snapshot snapshot/backtest.json
 
       - name: Publish snapshot to the data branch
         working-directory: snapshot

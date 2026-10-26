@@ -237,7 +237,8 @@ rather than being dropped. "First reached" and "above now" are different: a fail
 the target can push the lower bound back below it.
 
 **What it is not.** This is a benchmark path, not a forecast: it says what a typical vehicle in this
-position would do. The model has not yet been backtested against how real vehicles matured.
+position would do. It has been backtested against how real vehicles fared after five past
+dates; the results are on the Methodology page.
 """
     )
 
