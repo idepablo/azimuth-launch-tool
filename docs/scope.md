@@ -380,7 +380,8 @@ app (`app/ask.py`).
   definitions (orbital attempts with a known outcome, strict success, the family lens by default)
   and writes one SQL query, or declines if the question needs data the app does not have. The
   query runs in DuckDB over the snapshot, and the model turns the result rows into a short answer.
-  The query is always shown under the answer.
+  The answer comes first; a Details section shows how the question was read and the rows behind
+  it. Follow-ups ("and in 2024?", "explain that") use the last few exchanges as context.
 - **Safety.** The DuckDB connection cannot read files, reach the network or write anything, and
   only a single SELECT is accepted. If a query fails, the model gets one chance to fix it.
 - **Scope.** Launches, providers, vehicles, reliability, cadence and market share. Anything else

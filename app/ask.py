@@ -66,6 +66,10 @@ AZIMUTH definitions, which every query must follow:
 - Match names case-insensitively (ILIKE). "This year" means the year of the data date.
 - Percentages in the data are fractions between 0 and 1.
 - Return at most 50 rows, ordered usefully. Name columns clearly.
+- Follow-ups: earlier turns of the conversation are given for context. "And in 2024?" or "what
+  about Rocket Lab?" reuse the previous question with the change. If the user asks to explain or
+  give more detail about a previous answer, it is in scope: write a query that returns the detail
+  behind it (for example the rows that make up a total).
 
 Scope: only questions answerable from these tables are in scope: launches, providers, vehicles,
 reliability, cadence and market share. Out of scope: anything needing other data (payloads,
@@ -82,7 +86,7 @@ PLAN_TOOL = {
             "in_scope": {"type": "boolean"},
             "sql": {"type": "string", "description": "One SELECT query, or empty if out of scope."},
             "note": {"type": "string",
-                     "description": "One short sentence on how the question was interpreted."},
+                     "description": "One short sentence, in the language of the question and in plain words, on how it was interpreted (no SQL, table or column names)."},
         },
         "required": ["in_scope", "sql", "note"],
     },
@@ -173,12 +177,21 @@ def _system(as_of):
              "cache_control": {"type": "ephemeral"}}]
 
 
-def plan(question, as_of, error=None, previous_sql=None):
-    messages = [{"role": "user", "content": question}]
+def _turns(context):
+    """Earlier exchanges as alternating user/assistant messages."""
+    messages = []
+    for previous_question, previous_answer in context or []:
+        messages.append({"role": "user", "content": previous_question})
+        messages.append({"role": "assistant", "content": previous_answer or "(no answer)"})
+    return messages
+
+
+def plan(question, as_of, error=None, previous_sql=None, context=None):
+    content = question
     if error:
-        messages.append({"role": "user", "content":
-                         f"Your previous query failed.\nQuery: {previous_sql}\nError: {error}\n"
-                         "Write a corrected query."})
+        content += (f"\n\nYour previous query failed.\nQuery: {previous_sql}\nError: {error}\n"
+                    "Write a corrected query.")
+    messages = _turns(context) + [{"role": "user", "content": content}]
     response = _client().messages.create(
         model=MODEL, max_tokens=800, system=_system(as_of), messages=messages,
         tools=[PLAN_TOOL], tool_choice={"type": "tool", "name": "plan"})
@@ -186,23 +199,28 @@ def plan(question, as_of, error=None, previous_sql=None):
     return block.input
 
 
-def answer_text(question, note, sql, rows, as_of):
+def answer_text(question, note, sql, rows, as_of, context=None):
     table = rows.to_csv(index=False) if len(rows) else "(no rows)"
     prompt = (f"Question: {question}\nHow it was interpreted: {note}\nSQL: {sql}\n"
               f"Result (first {MAX_ROWS} rows):\n{table}\n\n"
               "Answer the question from this result only, in the same language as the question, "
               "in one to three plain sentences. Give the key numbers. Percentages in the data are "
-              "fractions: 0.95 means 95%. If the result is empty, say that nothing matched. Do not "
+              "fractions: 0.95 means 95%. If the result is empty, say that nothing matched. If the "
+              "question asks to explain, say in plain words how the figure was worked out, using "
+              "AZIMUTH's definitions. Never mention SQL, queries, tables or column names. Do not "
               "add facts that are not in the result. Do not use em dashes.")
     response = _client().messages.create(
         model=MODEL, max_tokens=400, system=_system(as_of),
-        messages=[{"role": "user", "content": prompt}])
+        messages=_turns(context) + [{"role": "user", "content": prompt}])
     return "".join(b.text for b in response.content if b.type == "text").strip()
 
 
-def ask(question, frames, as_of):
-    """Return a dict: in_scope, answer, sql, rows, note, error."""
-    p = plan(question, as_of)
+def ask(question, frames, as_of, context=None):
+    """Return a dict: in_scope, answer, sql, rows, note, error.
+
+    context: earlier (question, answer) pairs, so follow-ups make sense.
+    """
+    p = plan(question, as_of, context=context)
     if not p.get("in_scope") or not p.get("sql", "").strip():
         return {"in_scope": False, "answer": None, "sql": None, "rows": None,
                 "note": p.get("note"), "error": None}
@@ -210,12 +228,13 @@ def ask(question, frames, as_of):
     try:
         rows = run_sql(sql, frames)
     except Exception as first_error:
-        p = plan(question, as_of, error=str(first_error)[:500], previous_sql=sql)
+        p = plan(question, as_of, error=str(first_error)[:500], previous_sql=sql, context=context)
         sql = p.get("sql", "").strip().rstrip(";")
         try:
             rows = run_sql(sql, frames)
         except Exception as second_error:
             return {"in_scope": True, "answer": None, "sql": sql, "rows": None,
                     "note": p.get("note"), "error": str(second_error)[:300]}
-    return {"in_scope": True, "answer": answer_text(question, p.get("note"), sql, rows, as_of),
+    return {"in_scope": True,
+            "answer": answer_text(question, p.get("note"), sql, rows, as_of, context),
             "sql": sql, "rows": rows, "note": p.get("note"), "error": None}
