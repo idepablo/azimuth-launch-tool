@@ -185,8 +185,13 @@ with results:
                      f"has since dropped below it.")
         st.caption(note)
 
-    # fan chart: actual lower bound so far, then the simulated range
-    shown = 120
+    # fan chart: actual lower bound so far, then the simulated range. The
+    # window always covers the reported 80% range (plus a margin), or all
+    # simulated flights on request.
+    p90_hit = np.percentile(hit, 90)
+    needed = HORIZON if not np.isfinite(p90_hit) else int(p90_hit) + 15
+    show_all = st.toggle(f"Show all {HORIZON} future flights", value=False)
+    shown = HORIZON if show_all else int(min(HORIZON, max(120, needed)))
     fan = pd.DataFrame({
         "flight_number": future[:shown],
         "p10": np.percentile(lower[:, :shown], 10, axis=0),
