@@ -130,6 +130,19 @@ with right:
                  alt.Tooltip("share_of_attempts:Q", title="Share", format=".1%")])
     labels = base.mark_text(align="left", dx=6, fontSize=12).encode(text="label:N")
     ui.show(bars + labels, 340)
+    st.caption("Orbital attempts only: suborbital flights, such as New Shepard, are not counted.")
+    with st.expander(f"All {len(this_year)} providers in {year}"):
+        st.dataframe(
+            this_year.assign(share=this_year["share_of_attempts"] * 100)
+                     [["provider_name", "attempts", "successes", "share"]],
+            hide_index=True, width="stretch",
+            column_config={
+                "provider_name": st.column_config.TextColumn("Provider"),
+                "attempts": st.column_config.NumberColumn("Attempts"),
+                "successes": st.column_config.NumberColumn("Successes"),
+                "share": st.column_config.NumberColumn("Share", format="%.1f%%"),
+            },
+        )
 
 # ---- the active fleet ------------------------------------------------------
 st.subheader("Active vehicles")
@@ -169,7 +182,7 @@ else:
         column_config={
             "unit_name": st.column_config.TextColumn("Vehicle"),
             "provider": st.column_config.TextColumn("Provider"),
-            "era": st.column_config.TextColumn("First flew"),
+            "era": st.column_config.TextColumn("First-flight era"),
             "flights": st.column_config.NumberColumn("Flights"),
             "reliability": st.column_config.NumberColumn("Reliability", format="%.1f%%"),
             "reliability_lower_95": st.column_config.NumberColumn(

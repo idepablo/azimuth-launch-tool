@@ -40,8 +40,11 @@ comparison for a new vehicle, so it is the default.
 - **Lower bound:** the 95% Wilson interval's lower end. A vehicle that is 3 for 3 has a 100%
   success rate, but the evidence only supports "at least 44%". The bound rises as flights
   accumulate.
-- **Proven at 80% or 90%:** the flight at which the lower bound first reached that level. A
-  perfect record needs about 35 flights to reach 90%.
+- **First reached 80% or 90%:** the flight at which the lower bound first reached that level.
+  A perfect record needs 16 flights to reach 80% and 35 to reach 90%.
+- **Above 80% or 90% now:** whether the current lower bound is at or above that level. The two
+  can differ: a failure after reaching a level can push the lower bound back below it, so
+  "first reached" is a milestone, not a permanent status.
 
 ### The three models
 

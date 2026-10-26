@@ -102,8 +102,11 @@ st.dataframe(
         reliability=table["reliability"] * 100,
         reliability_lower_95=table["reliability_lower_95"] * 100,
         reliability_vs_expected=table["reliability_vs_expected"] * 100,
+        above_80=table["reliability_lower_95"] >= 0.8,
+        above_90=table["reliability_lower_95"] >= 0.9,
     )[["unit_name", "flights", "successes", "reliability", "reliability_lower_95",
-       "flights_to_lb_80", "flights_to_lb_90", "reliability_vs_expected"]],
+       "flights_to_lb_80", "above_80", "flights_to_lb_90", "above_90",
+       "reliability_vs_expected"]],
     hide_index=True, width="stretch",
     column_config={
         "unit_name": st.column_config.TextColumn("Vehicle"),
@@ -112,9 +115,13 @@ st.dataframe(
         "reliability": st.column_config.NumberColumn("Success rate", format="%.1f%%"),
         "reliability_lower_95": st.column_config.NumberColumn("Lower bound", format="%.1f%%"),
         "flights_to_lb_80": st.column_config.NumberColumn(
-            "Proven at 80%, flight", help="Flight at which the lower bound first reached 80%. "
-                                          "Empty: not yet."),
-        "flights_to_lb_90": st.column_config.NumberColumn("Proven at 90%, flight"),
+            "First reached 80%", help="Flight at which the lower bound first reached 80%. "
+                                      "Empty: not yet. A later failure can push it back below."),
+        "above_80": st.column_config.CheckboxColumn(
+            "Above 80% now", help="Whether the current lower bound is at or above 80%."),
+        "flights_to_lb_90": st.column_config.NumberColumn(
+            "First reached 90%", help="Flight at which the lower bound first reached 90%."),
+        "above_90": st.column_config.CheckboxColumn("Above 90% now"),
         "reliability_vs_expected": st.column_config.NumberColumn(
             "vs expected", format="%+.1f",
             help="Gap in reliability points to a typical vehicle of the same era over the same "
