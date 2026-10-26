@@ -2,7 +2,7 @@
 
 A data analytics platform that tracks how the global launch market is evolving (cadence, reliability, reuse, mass to orbit, and market share) to assess where a new heavy-lift vehicle realistically stands against the field.
 
-**Status:** In active development. Phases 0 to 3 (ingestion, silver, gold star schema) complete; Phase 4 (analysis marts) in progress. Built as an end-to-end BI engineering project on Databricks.
+**Status:** In active development. Phases 0 to 5 (ingestion, silver, gold star schema, analysis marts, scheduled refresh) complete; Phase 6 (the app) next. Built as an end-to-end BI engineering project on Databricks.
 
 ---
 
@@ -91,13 +91,19 @@ azimuth/
 ├── fetch_reference.py            # agencies + launcher configurations -> raw_reference/
 ├── flatten_reference.py          # raw_reference/ -> agencies, configurations, families parquet
 ├── load_reference.py             # reference snapshots -> bronze (full replace)
+├── refresh.py                    # daily incremental fetch + merge, page by page
+├── check_completeness.py         # bronze row count vs the API's count
+├── check_new_vehicles.py         # names vehicles missing from the classification seed
+├── requirements-pipeline.txt     # minimal dependencies for the scheduled refresh
 ├── azimuth_dbt/
 │   ├── models/staging/           # stg_launches, stg_vehicle_families
 │   ├── models/marts/             # star schema + analysis marts (gold)
 │   ├── seeds/                    # vehicle_classification, family_overrides (reviewed)
 │   └── tests/                    # data tests beyond the schema.yml ones
 ├── audit.ipynb                   # Phase 0 exploratory data audit
-└── .github/workflows/dbt.yml     # CI: dbt build on every push
+└── .github/workflows/
+    ├── dbt.yml                   # build + test in an isolated schema, then deploy on main
+    └── refresh.yml               # daily: reference data, incremental load, dbt, checks
 ```
 
 `raw/`, `raw_reference/`, and `staging/` are generated data and are not tracked.
@@ -181,7 +187,7 @@ The working pattern that came out of this: use it to move faster on things I und
 - [x] Gold star schema (five dimensions, one fact) under tests and CI
 - [x] Vehicle families resolved, maturation and market marts
 - [x] Maturity-adjusted reliability: debut curve, opening-run survival (Kaplan-Meier), per-vehicle benchmark
-- [ ] Scheduled refresh pipeline
+- [x] Scheduled refresh: daily incremental load, freshness and completeness checks
 - [ ] Market Overview
 - [ ] Maturation Race
 - [ ] Scenario Simulator
@@ -261,6 +267,16 @@ dbt build
 ```
 
 This loads the seeds, builds staging, the gold star schema and the analysis marts, and runs every test.
+
+**8. Keep it current**
+
+After the one-time backfill, `refresh.py` loads only launches whose record changed since the newest one in bronze:
+
+```bash
+python refresh.py
+```
+
+In this repository it runs daily on GitHub Actions (`refresh.yml`), followed by the dbt build, tests and deploy, a completeness check against the API's count, a source freshness check, and a list of any new vehicles that need a row in the classification seed. It needs three repository secrets: `DBT_DATABRICKS_HOST`, `DBT_DATABRICKS_HTTP_PATH` and `DBT_DATABRICKS_TOKEN`.
 
 ---
 

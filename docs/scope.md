@@ -312,6 +312,38 @@ Two limits belong on the methodology page:
   already describe. Where a vehicle is in its life explains far more than a common prior, which is
   what the debut curve captures.
 
+## Data operations
+
+After the one-time backfill, the data is kept current by a scheduled refresh (`refresh.yml`, daily
+on GitHub Actions, also runnable by hand).
+
+- **Incremental fetch.** `refresh.py` asks the production API only for past launches whose record
+  changed since the newest `last_updated` in bronze, minus a one-day overlap. The merge is
+  idempotent, so the overlap costs a few repeated rows and protects against records edited during
+  the previous run. A launch that has just flown is covered too: its status update moves its
+  `last_updated` forward.
+- **Page-by-page merge.** Results are ordered by `last_updated` and each page is merged as soon as
+  it arrives, with its own audit row. An interrupted run keeps what it loaded, and the next run's
+  watermark resumes from there. Raw pages are archived in the bronze volume, so the raw archive
+  stays the source of truth.
+- **Same deploy path as code changes.** After the load, the refresh calls the same workflow a push
+  to `main` runs: build and test in the isolated `ci` schema, then deploy to silver and gold only if
+  every test passed.
+- **Completeness.** Bronze's row count is compared with the API's count of past launches. Fewer in
+  bronze fails the run (the fix is a full backfill). More in bronze is reported, not failed, since
+  bronze keeps records the source has since removed.
+- **Freshness.** dbt source freshness on `bronze.launches`, measured on the newest launch date: a
+  warning after 7 days, an error after 14. Something launches almost every day, so a week without a
+  new launch means the refresh has stopped.
+- **New vehicles.** A vehicle that is not yet in the classification seed no longer fails the build.
+  The relationship test warns, the launch is scoped `unclassified` (and stays out of the orbital
+  marts), and the run page names the vehicle so the seed can be updated. The first refresh found
+  one, Pallas-1 (Galactic Energy, demo flight 2026-09-01), now classified as orbital.
+
+Limits: GitHub disables scheduled workflows on a repository with no activity for 60 days, and the
+Databricks token has an expiry date. Either one stops the refresh, and the freshness check is what
+makes that visible.
+
 ## Not modeled in v1
 
 **`program`** is a list on the launch. A launch can belong to zero, one, or several programs
@@ -360,7 +392,8 @@ into the dataset while a five-hour backfill is running, offsets shift forward an
 pushed past a boundary already read. It would be skipped, and the row count would not reveal it.
 The backfill returned 7,598 records where the API had reported 7,589 earlier the same day; the
 likely explanation is launches confirmed during the run, but this has not been verified. A
-completeness comparison against the source count is on the data quality list.
+completeness comparison against the source count now runs after every scheduled refresh (see
+Data operations); on its first run, bronze and the API agreed at 7,659 launches.
 
 **The development mirror is not representative.** It holds 354 records where production holds
 7,598. It is suitable for testing code and unsuitable for any quantitative conclusion.
@@ -407,3 +440,4 @@ verified.
 | 2026-10-24 | Phase 4: configuration families resolved as a hierarchy (not many-to-many) with a reviewed override seed; family chosen as the default maturation unit with configuration as the second lens; reliability defined as strict success rate with a 95% Wilson interval; `net_precision` finding corrected (null means not recorded, no Month or Year values exist); pre-launch failures (Apollo 1, Amos-6) recorded as an open decision. |
 | 2026-10-25 | Failures before launch decided: Apollo 1 excluded through the `launch_exclusions` seed (new `scope_class` value `pre_launch_failure`), Amos-6 kept and disclosed. |
 | 2026-10-25 | Maturity-adjusted reliability: debut curve by flight band and era, Kaplan-Meier opening-run survival (verified against `lifelines`), and a leave-one-out benchmark per vehicle; empirical-Bayes prior tested and not adopted, with the reason recorded. |
+| 2026-10-26 | Phase 5: daily incremental refresh with page-by-page merge, completeness check against the API count (gap closed), source freshness, and a warning path for vehicles new since the last seed review. Pallas-1 added to the seed. |
