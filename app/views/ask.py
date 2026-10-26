@@ -1,8 +1,10 @@
 """Ask AZIMUTH: questions in plain language, answered from the app's data."""
+import html
 import json
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 
 import streamlit as st
 
@@ -11,11 +13,26 @@ import data
 import ui
 
 QUESTIONS_PER_SESSION = 20
+AVATAR = str(Path(__file__).parent.parent / "assets" / "az_avatar.png")
+
+# chat look: questions as bubbles on the right, AZIMUTH on the left with its own icon,
+# and a large, clearly outlined question box
+st.markdown(f"""
+<style>
+.az-user {{ display: flex; justify-content: flex-end; margin: 22px 0 8px; }}
+.az-bubble {{ background: #263040; color: #E6EDF3; padding: 12px 18px; max-width: 75%;
+             border-radius: 18px 18px 4px 18px; line-height: 1.55; white-space: pre-wrap; }}
+[data-testid="stChatInput"] {{ border: 2px solid {ui.AMBER} !important; border-radius: 16px !important;
+                              background: #151B23 !important; }}
+[data-testid="stChatInput"] > div {{ border: none !important; background: transparent !important; }}
+[data-testid="stChatInput"] textarea {{ min-height: 56px !important; font-size: 1.05rem !important; }}
+</style>
+""", unsafe_allow_html=True)
 EXAMPLES = [
     "Which providers launched the most in 2025?",
     "How many failures has Electron had, and when?",
-    "Which active vehicles with at least 50 flights have the highest proven reliability?",
-    "¿Cuántos lanzamientos orbitales hizo China cada año desde 2015?",
+    "Most reliable active vehicles with 50+ flights?",
+    "¿Cuántos lanzamientos hizo China cada año desde 2015?",
 ]
 OUT_OF_SCOPE = ("Sorry, that is outside what AZIMUTH can answer. I can only answer questions "
                 "about the launches, providers and vehicles in this app: counts, success rates, "
@@ -83,10 +100,10 @@ def send_report(entry, reason):
 
 
 def show(entry, index):
-    with st.chat_message("user"):
-        st.write(entry["question"])
+    st.markdown(f'<div class="az-user"><div class="az-bubble">{html.escape(entry["question"])}'
+                '</div></div>', unsafe_allow_html=True)
     result = entry["result"]
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar=AVATAR):
         if not result["in_scope"]:
             st.write(OUT_OF_SCOPE)
         elif result["error"]:
@@ -122,36 +139,42 @@ def show(entry, index):
                                 st.error("The report could not be sent. Please try again later.")
 
 
-for i, entry in enumerate(history):
-    show(entry, i)
+# the conversation sits in a centred column, like a chat
+_, chat, _ = st.columns([1, 6, 1])
+with chat:
+    for i, entry in enumerate(history):
+        show(entry, i)
 
-# ---- new question ---------------------------------------------------------------------
-asked = len(history)
-if asked >= QUESTIONS_PER_SESSION:
-    st.info(f"That's the limit of {QUESTIONS_PER_SESSION} questions per visit. Thanks for trying "
-            "Ask AZIMUTH.")
-else:
-    question = None
-    if not history:
-        st.caption("Try one of these:")
-        cols = st.columns(2)
-        for i, example in enumerate(EXAMPLES):
-            if cols[i % 2].button(example, key=f"example_{i}", width="stretch"):
-                question = example
-    typed = st.chat_input("Ask about launches, providers, vehicles or reliability", max_chars=300)
-    question = typed or question
-    if question:
-        with st.spinner("Looking it up..."):
-            try:
-                # the last few exchanges, so follow-up questions make sense
-                context = [(h["question"], h["result"].get("answer") or "")
-                           for h in history[-3:] if h["result"].get("in_scope")]
-                result = ask.ask(question, frames, as_of, context)
-            except Exception:
-                result = {"in_scope": True, "answer": None, "sql": None, "rows": None,
-                          "note": None, "error": "service"}
-        history.append({"question": question, "result": result})
-        st.rerun()
+    # ---- new question -------------------------------------------------------------------
+    if len(history) >= QUESTIONS_PER_SESSION:
+        st.info(f"That's the limit of {QUESTIONS_PER_SESSION} questions per visit. Thanks for "
+                "trying Ask AZIMUTH.")
+    else:
+        question = None
+        st.markdown("**Ask a question**" if not history else "")
+        # inside a container, the box sits right under the conversation instead of
+        # at the bottom of the window
+        with st.container():
+            typed = st.chat_input("Ask about launches, providers, vehicles or reliability...",
+                                  max_chars=300)
+        if not history:
+            picked = st.pills("Or try one of these:", EXAMPLES, selection_mode="single",
+                              key="ask_example")
+            question = picked
+        question = typed or question
+        if question:
+            with st.spinner("Looking it up..."):
+                try:
+                    # the last few exchanges, so follow-up questions make sense
+                    context = [(h["question"], h["result"].get("answer") or "")
+                               for h in history[-3:] if h["result"].get("in_scope")]
+                    result = ask.ask(question, frames, as_of, context)
+                except Exception:
+                    result = {"in_scope": True, "answer": None, "sql": None, "rows": None,
+                              "note": None, "error": "service"}
+            history.append({"question": question, "result": result})
+            st.session_state.pop("ask_example", None)
+            st.rerun()
 
 st.caption("Answers are generated by an AI model from the data shown in this app and can be wrong. "
            "Questions and reports are not stored by the app; a report sends the question, answer "
