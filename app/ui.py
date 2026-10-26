@@ -37,6 +37,8 @@ def footer():
         "[Methodology](/methodology) · "
         "[Code](https://github.com/idepablo/azimuth-launch-tool)"
     )
+    st.caption("© 2026 Ignacio de Pablo. All rights reserved. "
+               "Launch data © The Space Devs, used with attribution.")
 
 
 def style(chart, height=320):

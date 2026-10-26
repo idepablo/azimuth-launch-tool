@@ -297,3 +297,13 @@ In this repository it runs daily on GitHub Actions (`refresh.yml`), followed by 
 ## Acknowledgements
 
 Launch data from the [Launch Library 2 API](https://thespacedevs.com/llapi), maintained by [The Space Devs](https://thespacedevs.com/), and available free of charge.
+
+---
+
+## Copyright
+
+© 2026 Ignacio de Pablo. All rights reserved.
+
+The code, documentation and app design in this repository are shared publicly so the work can be read and evaluated. No license is granted to copy, modify or redistribute them without written permission.
+
+Launch data comes from [Launch Library 2](https://thespacedevs.com/llapi) by The Space Devs and remains theirs; it is used here with attribution.
