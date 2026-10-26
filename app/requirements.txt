@@ -1,6 +1,6 @@
 # The app's own dependencies (Streamlit Community Cloud reads this file).
+# pyarrow and numpy are left to Streamlit's resolver: streamlit 1.66.1
+# excludes pyarrow 25.0.0, which the pipeline uses.
 streamlit==1.66.1
 pandas==2.3.3
-pyarrow==25.0.0
-numpy==2.5.1
 altair==6.3.0
