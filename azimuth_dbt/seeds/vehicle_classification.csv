@@ -484,3 +484,4 @@ config_id,config_name,launch_count,leo_capacity,apogee,is_placeholder,vehicle_cl
 264,Blue Scout II,1,30.0,,False,orbital,"verified vs launch records: single flight is Mercury-Scout 1, an orbital attempt"
 435,Titan 405B,1,14500.0,,False,orbital,
 460,Eris-1,1,305.0,,False,orbital,
+542,Pallas-1,1,,,False,orbital,"Added 2026-10-26 from the first scheduled refresh. Galactic Energy orbital launcher (demo flight 2026-09-01), same provider as Ceres-1 and Ceres-2."
