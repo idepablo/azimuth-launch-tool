@@ -66,6 +66,9 @@ jobs:
       - name: Completeness against the API count
         run: python check_completeness.py
 
+      - name: Vehicles missing from the classification seed
+        run: python check_new_vehicles.py
+
       - name: Source freshness
         working-directory: azimuth_dbt
         run: |
