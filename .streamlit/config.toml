@@ -1,0 +1,15 @@
+# Dark theme matching the AZIMUTH mockup
+[theme]
+base = "dark"
+primaryColor = "#F2A33A"
+backgroundColor = "#0D1117"
+secondaryBackgroundColor = "#151B23"
+textColor = "#E6EDF3"
+borderColor = "#263040"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false

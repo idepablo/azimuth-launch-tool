@@ -2,7 +2,7 @@
 
 A data analytics platform that tracks how the global launch market is evolving (cadence, reliability, reuse, mass to orbit, and market share) to assess where a new heavy-lift vehicle realistically stands against the field.
 
-**Status:** In active development. Phases 0 to 5 (ingestion, silver, gold star schema, analysis marts, scheduled refresh) complete; Phase 6 (the app) next. Built as an end-to-end BI engineering project on Databricks.
+**Status:** In active development. Phases 0 to 6 complete: ingestion, silver, gold star schema, analysis marts, daily refresh, and the Streamlit app. Ask AZIMUTH (v2) is next. Built as an end-to-end BI engineering project on Databricks.
 
 ---
 
@@ -95,6 +95,11 @@ azimuth/
 ├── check_completeness.py         # bronze row count vs the API's count
 ├── check_new_vehicles.py         # names vehicles missing from the classification seed
 ├── requirements-pipeline.txt     # minimal dependencies for the scheduled refresh
+├── export_snapshot.py            # gold tables -> parquet snapshot for the app
+├── app/                          # Streamlit app (reads the snapshot, not Databricks)
+│   ├── streamlit_app.py          # entry point and navigation
+│   ├── views/                    # Market Overview, Maturation Race, Scenario Simulator, Methodology
+│   └── requirements.txt          # the app's own dependencies
 ├── azimuth_dbt/
 │   ├── models/staging/           # stg_launches, stg_vehicle_families
 │   ├── models/marts/             # star schema + analysis marts (gold)
@@ -188,9 +193,10 @@ The working pattern that came out of this: use it to move faster on things I und
 - [x] Vehicle families resolved, maturation and market marts
 - [x] Maturity-adjusted reliability: debut curve, opening-run survival (Kaplan-Meier), per-vehicle benchmark
 - [x] Scheduled refresh: daily incremental load, freshness and completeness checks
-- [ ] Market Overview
-- [ ] Maturation Race
-- [ ] Scenario Simulator
+- [x] Market Overview
+- [x] Maturation Race
+- [x] Scenario Simulator (Monte Carlo on the debut curve)
+- [x] Methodology page
 - [ ] Ask AZIMUTH (AI query layer, v2)
 
 ---
@@ -268,7 +274,15 @@ dbt build
 
 This loads the seeds, builds staging, the gold star schema and the analysis marts, and runs every test.
 
-**8. Keep it current**
+**8. Run the app**
+
+```bash
+streamlit run app/streamlit_app.py
+```
+
+The app reads a parquet snapshot of the gold tables from this repository's `data` branch, which CI republishes after every successful deploy. It never connects to Databricks, so it holds no credentials and visitors use none of the workspace's compute. To run it on your own snapshot, set `AZIMUTH_DATA_DIR` to a folder produced by `python export_snapshot.py <folder>`.
+
+**9. Keep it current**
 
 After the one-time backfill, `refresh.py` loads only launches whose record changed since the newest one in bronze:
 
