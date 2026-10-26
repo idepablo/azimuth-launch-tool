@@ -106,37 +106,54 @@ with left:
 
 with right:
     st.subheader(f"Share of attempts, {year}")
-    shown = this_year.head(8)
-    if focus and focus in this_year["provider_name"].values and focus not in shown["provider_name"].values:
-        shown = pd.concat([shown.head(7), this_year[this_year["provider_name"] == focus]])
-    rest = this_year[~this_year["provider_name"].isin(shown["provider_name"])]
+    ranked = this_year.assign(
+        rank=this_year["attempts"].rank(ascending=False, method="min").astype(int))
+    ranked["display"] = "#" + ranked["rank"].astype(str) + "  " + ranked["provider_name"]
+
+    # the top eight always stay; a focus provider outside them is added below
+    # with its real position, and everyone else is grouped at the bottom
+    shown = ranked.head(8)
+    if focus and focus not in shown["provider_name"].values:
+        shown = pd.concat([shown, ranked[ranked["provider_name"] == focus]])
+    rest = ranked[~ranked["provider_name"].isin(shown["provider_name"])]
     top_share = shown.copy()
     if len(rest):
         top_share = pd.concat([top_share, pd.DataFrame([{
-            "provider_name": f"{len(rest)} others", "share_of_attempts": rest["share_of_attempts"].sum(),
+            "display": f"{len(rest)} others", "provider_name": "others",
+            "share_of_attempts": rest["share_of_attempts"].sum(),
             "attempts": rest["attempts"].sum()}])])
     top_share["label"] = top_share["share_of_attempts"].map(lambda v: f"{v * 100:.1f}%")
     top_share["is_focus"] = top_share["provider_name"] == focus
 
     base = alt.Chart(top_share).encode(
-        y=alt.Y("provider_name:N", sort=None, title=None, axis=alt.Axis(labelLimit=220)),
+        y=alt.Y("display:N", sort=None, title=None, axis=alt.Axis(labelLimit=240)),
         x=alt.X("share_of_attempts:Q", title=None, axis=None,
                 scale=alt.Scale(domain=[0, max(0.6, top_share["share_of_attempts"].max() * 1.15)])),
     )
     bars = base.mark_bar(cornerRadiusEnd=3, height=18).encode(
         color=alt.condition("datum.is_focus", alt.value(ui.AMBER), alt.value(ui.BLUE)),
-        tooltip=[alt.Tooltip("provider_name:N", title="Provider"),
+        tooltip=[alt.Tooltip("display:N", title="Provider"),
                  alt.Tooltip("attempts:Q", title="Attempts"),
                  alt.Tooltip("share_of_attempts:Q", title="Share", format=".1%")])
-    labels = base.mark_text(align="left", dx=6, fontSize=12).encode(text="label:N")
-    ui.show(bars + labels, 340)
+    labels = base.mark_text(align="left", dx=6, fontSize=12).encode(
+        text="label:N",
+        color=alt.condition("datum.is_focus", alt.value(ui.AMBER), alt.value(ui.LIGHT)))
+    ui.show(bars + labels, 340 + 30 * (len(top_share) - 9))
+
+    if focus and focus not in ranked["provider_name"].values:
+        st.caption(f"{focus} had no orbital attempts in {year}.")
     st.caption("Orbital attempts only: suborbital flights, such as New Shepard, are not counted.")
-    with st.expander(f"All {len(this_year)} providers in {year}"):
+
+    with st.expander(f"All {len(ranked)} providers in {year}"):
+        table = ranked.assign(share=ranked["share_of_attempts"] * 100)[
+            ["rank", "provider_name", "attempts", "successes", "share"]]
+        styled = table.style.apply(
+            lambda row: [f"color: {ui.AMBER}; font-weight: 600" if row["provider_name"] == focus
+                         else "" for _ in row], axis=1)
         st.dataframe(
-            this_year.assign(share=this_year["share_of_attempts"] * 100)
-                     [["provider_name", "attempts", "successes", "share"]],
-            hide_index=True, width="stretch",
+            styled, hide_index=True, width="stretch",
             column_config={
+                "rank": st.column_config.NumberColumn("#"),
                 "provider_name": st.column_config.TextColumn("Provider"),
                 "attempts": st.column_config.NumberColumn("Attempts"),
                 "successes": st.column_config.NumberColumn("Successes"),
@@ -157,7 +174,8 @@ lens_label = f1.segmented_control("Count flights by", ["Family", "Configuration"
                                        "separately.")
 lens = (lens_label or "Family").lower()
 min_flights = f2.slider("Minimum flights", 1, 50, 3)
-only_focus = f3.toggle(f"Only {focus} vehicles", value=True) if focus else False
+only_focus = f3.toggle(f"Only {focus} vehicles", value=True,
+                       help="Off: list every vehicle, with these highlighted.") if focus else False
 
 fleet = reliability[(reliability["lens"] == lens)
                     & reliability["is_active"]
@@ -170,13 +188,19 @@ fleet = fleet.sort_values("flights", ascending=False)
 if fleet.empty:
     st.info("No active vehicles match these filters.")
 else:
+    shown_fleet = fleet.assign(
+        reliability=fleet["reliability"] * 100,
+        reliability_lower_95=fleet["reliability_lower_95"] * 100,
+        reliability_vs_expected=fleet["reliability_vs_expected"] * 100,
+    )[["unit_name", "provider", "era", "flights", "reliability", "reliability_lower_95",
+       "reliability_vs_expected", "latest_flight_at"]]
+    if focus and not only_focus:
+        # everyone listed, the focus provider's vehicles highlighted
+        shown_fleet = shown_fleet.style.apply(
+            lambda row: [f"color: {ui.AMBER}; font-weight: 600" if row["provider"] == focus
+                         else "" for _ in row], axis=1)
     st.dataframe(
-        fleet.assign(
-            reliability=fleet["reliability"] * 100,
-            reliability_lower_95=fleet["reliability_lower_95"] * 100,
-            reliability_vs_expected=fleet["reliability_vs_expected"] * 100,
-        )[["unit_name", "provider", "era", "flights", "reliability", "reliability_lower_95",
-           "reliability_vs_expected", "latest_flight_at"]],
+        shown_fleet,
         hide_index=True,
         width="stretch",
         column_config={
