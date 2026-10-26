@@ -371,6 +371,28 @@ used to make a prediction. Dates are not tested, because they depend on the cade
   their range, so they cannot be scored yet. The sample is small; the range looks, if anything,
   slightly wide.
 
+## Ask AZIMUTH
+
+Plain-language questions, in English or Spanish, answered from the same snapshot as the rest of the
+app (`app/ask.py`).
+
+- **How it answers.** An AI model (Claude Haiku) reads the table descriptions and AZIMUTH's
+  definitions (orbital attempts with a known outcome, strict success, the family lens by default)
+  and writes one SQL query, or declines if the question needs data the app does not have. The
+  query runs in DuckDB over the snapshot, and the model turns the result rows into a short answer.
+  The query is always shown under the answer.
+- **Safety.** The DuckDB connection cannot read files, reach the network or write anything, and
+  only a single SELECT is accepted. If a query fails, the model gets one chance to fix it.
+- **Scope.** Launches, providers, vehicles, reliability, cadence and market share. Anything else
+  (prices, payloads, reasons for failures, news, opinions) gets a fixed out-of-scope message.
+- **Reports.** Under each answer, a visitor can report a wrong answer or a question they think
+  should be in scope. The report (question, query, answer, their note) is emailed through
+  Formspree; the app stores nothing.
+- **Limits.** 20 questions per visit, and a monthly spending cap on the API account.
+- **Exam.** `analysis/ask_eval.py` asks 36 questions after every deploy: 30 answerable ones, each
+  checked against a hand-written reference query on the same data, and 6 that should be declined.
+  The latest score is shown on the page.
+
 ## Not modeled in v1
 
 **`program`** is a list on the launch. A launch can belong to zero, one, or several programs
@@ -469,3 +491,4 @@ verified.
 | 2026-10-25 | Maturity-adjusted reliability: debut curve by flight band and era, Kaplan-Meier opening-run survival (verified against `lifelines`), and a leave-one-out benchmark per vehicle; empirical-Bayes prior tested and not adopted, with the reason recorded. |
 | 2026-10-26 | Phase 5: daily incremental refresh with page-by-page merge, completeness check against the API count (gap closed), source freshness, and a warning path for vehicles new since the last seed review. Pallas-1 added to the seed. |
 | 2026-10-26 | Simulator backtest added (five cutoffs, three checks), rerun on every deploy and shown on the app's Methodology page. |
+| 2026-10-26 | Ask AZIMUTH: question to SQL over the snapshot in a sandboxed DuckDB, out-of-scope handling with reports by email, per-visit limit, and a 36-question exam run after every deploy. |

@@ -36,6 +36,15 @@ def manifest():
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
+def ask_eval():
+    """Latest Ask AZIMUTH exam results (analysis/ask_eval.py), or None."""
+    try:
+        return json.loads(_read("ask_eval.json"))
+    except Exception:
+        return None
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
 def backtest():
     """Simulator backtest results (analysis/backtest.py), or None if not published yet."""
     try:

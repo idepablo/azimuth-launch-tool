@@ -109,6 +109,21 @@ jobs:
           # rerun the simulator backtest on the new data; the app shows it
           python analysis/backtest.py snapshot snapshot/backtest.json
 
+      # Ask AZIMUTH exam: only runs when the API key secret is set, and
+      # never blocks the deploy (an API outage should not stop the data)
+      - name: Ask AZIMUTH exam
+        working-directory: .
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            pip install -r app/requirements.txt
+            python analysis/ask_eval.py snapshot snapshot/ask_eval.json
+          else
+            echo "No ANTHROPIC_API_KEY secret: exam skipped"
+          fi
+
       - name: Publish snapshot to the data branch
         working-directory: snapshot
         run: |
