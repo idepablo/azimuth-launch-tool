@@ -1,5 +1,6 @@
 """Ask AZIMUTH: questions in plain language, answered from the app's data."""
 import json
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
@@ -45,10 +46,12 @@ history = st.session_state.setdefault("ask_history", [])
 
 
 def formspree_id():
+    """The form's code; accepts the full https://formspree.io/f/... address too."""
     try:
-        return st.secrets.get("FORMSPREE_FORM_ID")
+        value = st.secrets.get("FORMSPREE_FORM_ID")
     except Exception:
         return None
+    return value.strip().rstrip("/").split("/")[-1] if value else None
 
 
 def send_report(entry, reason):
@@ -67,9 +70,16 @@ def send_report(entry, reason):
     }
     request = urllib.request.Request(
         f"https://formspree.io/f/{formspree_id()}", data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json", "Accept": "application/json"})
-    with urllib.request.urlopen(request, timeout=15) as response:
-        return response.status == 200
+        headers={"Content-Type": "application/json", "Accept": "application/json",
+                 # the default Python identifier is often refused by bot protection
+                 "User-Agent": "Mozilla/5.0 (AZIMUTH app; +https://azimuth-launch.streamlit.app)"})
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            return 200 <= response.status < 300
+    except urllib.error.HTTPError as error:
+        # visible in the app's logs, so a failed report can be diagnosed
+        print(f"Formspree report failed: HTTP {error.code}: {error.read()[:300]!r}")
+        raise
 
 
 def show(entry, index):
@@ -107,7 +117,8 @@ def show(entry, index):
                             try:
                                 entry["reported"] = send_report(entry, reason.strip())
                                 st.rerun()
-                            except Exception:
+                            except Exception as error:
+                                print(f"Report error: {error!r}")
                                 st.error("The report could not be sent. Please try again later.")
 
 
