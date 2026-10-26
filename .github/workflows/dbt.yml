@@ -57,6 +57,8 @@ jobs:
     needs: dbt-build
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # to publish the app snapshot to the data branch
     concurrency:
       group: deploy-gold
       cancel-in-progress: false
@@ -92,3 +94,25 @@ jobs:
 
       - name: Deploy to silver and gold
         run: dbt build
+
+      # The app reads a parquet snapshot of gold, not Databricks directly.
+      # Published to an orphan `data` branch, replaced on every deploy, so
+      # main's history never fills up with data files.
+      - name: Export app snapshot
+        working-directory: .
+        env:
+          DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+        run: |
+          pip install -r requirements-pipeline.txt
+          python export_snapshot.py snapshot
+
+      - name: Publish snapshot to the data branch
+        working-directory: snapshot
+        run: |
+          git init -q -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "Snapshot of gold, data as of $(python -c 'import json;print(json.load(open("manifest.json"))["data_as_of"])')"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data

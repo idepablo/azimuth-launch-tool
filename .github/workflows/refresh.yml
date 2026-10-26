@@ -46,6 +46,8 @@ jobs:
     needs: ingest
     uses: ./.github/workflows/dbt.yml
     secrets: inherit
+    permissions:
+      contents: write   # the deploy job publishes the app snapshot
 
   checks:
     needs: dbt
