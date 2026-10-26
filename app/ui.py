@@ -122,6 +122,14 @@ def focus_picker():
     return choice
 
 
+def open_vehicle_on_click(event, names, lens):
+    """Open the vehicle page for the row clicked in a table."""
+    rows = event.selection.rows if event else []
+    if rows:
+        st.switch_page("views/vehicle.py",
+                       query_params={"vehicle": names[rows[0]], "lens": lens})
+
+
 def pct(x, digits=1):
     return "n/a" if x is None or x != x else f"{x * 100:.{digits}f}%"
 

@@ -97,7 +97,8 @@ st.caption("Crosses mark failures and partial failures. Lines step at each fligh
 
 # ---- the record table ---------------------------------------------------------
 table = units[units["unit_name"].isin(chosen)].set_index("unit_name").loc[chosen].reset_index()
-st.dataframe(
+st.caption("Click a vehicle to open its page.")
+clicked = st.dataframe(
     table.assign(
         reliability=table["reliability"] * 100,
         reliability_lower_95=table["reliability_lower_95"] * 100,
@@ -107,7 +108,8 @@ st.dataframe(
     )[["unit_name", "flights", "successes", "reliability", "reliability_lower_95",
        "flights_to_lb_80", "above_80", "flights_to_lb_90", "above_90",
        "reliability_vs_expected"]],
-    hide_index=True, width="stretch",
+    hide_index=True, width="stretch", on_select="rerun", selection_mode="single-row",
+    key="maturation_table",
     column_config={
         "unit_name": st.column_config.TextColumn("Vehicle"),
         "flights": st.column_config.NumberColumn("Flights"),
@@ -128,6 +130,7 @@ st.dataframe(
                  "flights. The vehicle's own flights are left out of the comparison."),
     },
 )
+ui.open_vehicle_on_click(clicked, table["unit_name"].tolist(), lens)
 
 # ---- headline -------------------------------------------------------------
 established = reliability[reliability["flights"] >= 20]

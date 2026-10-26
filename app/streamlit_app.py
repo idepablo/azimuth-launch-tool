@@ -16,6 +16,7 @@ st.set_page_config(
 pages = [
     st.Page("views/market.py", title="Market Overview", url_path="market", default=True),
     st.Page("views/maturation.py", title="Maturation Race", url_path="maturation"),
+    st.Page("views/vehicle.py", title="Vehicles", url_path="vehicle"),
     st.Page("views/simulator.py", title="Scenario Simulator", url_path="simulator"),
     st.Page("views/methodology.py", title="Methodology", url_path="methodology"),
 ]

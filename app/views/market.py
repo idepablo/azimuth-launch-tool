@@ -243,10 +243,14 @@ else:
         shown_fleet = shown_fleet.style.apply(
             lambda row: [f"color: {ui.AMBER}; font-weight: 600" if row["provider"] == focus
                          else "" for _ in row], axis=1)
-    st.dataframe(
+    st.caption("Click a vehicle to open its page.")
+    clicked = st.dataframe(
         shown_fleet,
         hide_index=True,
         width="stretch",
+        on_select="rerun",
+        selection_mode="single-row",
+        key="fleet_table",
         column_config={
             "unit_name": st.column_config.TextColumn("Vehicle"),
             "provider": st.column_config.TextColumn("Provider"),
@@ -260,5 +264,7 @@ else:
             "latest_flight_at": st.column_config.DateColumn("Latest flight", format="D MMM YYYY"),
         },
     )
+
+    ui.open_vehicle_on_click(clicked, fleet["unit_name"].tolist(), lens)
 
 ui.footer()

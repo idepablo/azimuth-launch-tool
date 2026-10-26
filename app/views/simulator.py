@@ -52,6 +52,9 @@ candidates = fleet[fleet["flights"] >= 2]
 if focus and (candidates["provider"] == focus).any():
     candidates = candidates[candidates["provider"] == focus]
 newest = candidates.sort_values("first_flight_at").iloc[-1]["unit_name"]
+# a vehicle passed in the link (from its vehicle page) wins over the default
+if st.query_params.get("vehicle") in names:
+    newest = st.query_params["vehicle"]
 
 inputs, results = st.columns([1, 2.4], gap="large")
 
@@ -59,6 +62,7 @@ with inputs:
     vehicle = st.selectbox("Vehicle", names, index=names.index(newest),
                            format_func=lambda n: f"{n} ({provider_by_name.get(n) or 'unknown'})",
                            help="Active vehicles, counted by family.")
+    st.query_params["vehicle"] = vehicle
     v = fleet[fleet["unit_name"] == vehicle].iloc[0]
     history = maturation[(maturation["lens"] == LENS) & (maturation["unit_name"] == vehicle)] \
         .sort_values("flight_number")
