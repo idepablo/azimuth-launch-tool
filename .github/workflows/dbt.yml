@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # also called by refresh.yml after new data lands in bronze
+  workflow_call:
 
 jobs:
   # Builds and tests everything in the isolated `ci` schema.
@@ -41,13 +43,19 @@ jobs:
           EOF
 
       - name: Build and test
-        run: dbt build
+        run: |
+          dbt build | tee build.log
+          # warnings do not fail the build; surface them on the run page
+          if grep -qE "WARN=[1-9]" build.log; then
+            echo "::warning title=dbt build::Passed with warnings. Most likely a new vehicle that needs a row in seeds/vehicle_classification.csv."
+          fi
 
-  # Deploys to the real silver and gold schemas, only for pushes to main
-  # and only after the isolated build above has passed every test.
+  # Deploys to the real silver and gold schemas, only on main (a push, or
+  # the scheduled refresh) and only after the isolated build above has
+  # passed every test. Pull requests never deploy.
   deploy:
     needs: dbt-build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     concurrency:
       group: deploy-gold

@@ -17,10 +17,15 @@ models:
       - name: config_id
         tests:
           - not_null
+          # A vehicle that is new since the last seed review fails this.
+          # It warns rather than errors so the refresh still deploys; the
+          # launch is scoped 'unclassified' until the seed gets its row.
           - relationships:
               arguments:
                 to: ref('vehicle_classification')
                 field: config_id
+              config:
+                severity: warn
   - name: stg_vehicle_families
     description: >
       One row per launched configuration with its resolved vehicle family.

@@ -75,5 +75,6 @@ def flatten_all():
     return df
 
 
-df = flatten_all()
-print(df.head())
+if __name__ == "__main__":
+    df = flatten_all()
+    print(df.head())

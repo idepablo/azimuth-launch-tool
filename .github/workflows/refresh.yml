@@ -1,0 +1,86 @@
+name: refresh
+
+# Keeps AZIMUTH current: pulls launches that changed since the last load,
+# merges them into bronze, then rebuilds and redeploys silver and gold
+# through the same tested path as a push to main.
+
+on:
+  schedule:
+    - cron: "23 11 * * *"   # daily, 11:23 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: bronze-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install pipeline dependencies
+        run: pip install -r requirements-pipeline.txt
+
+      # Reference snapshots come from the development mirror (no rate
+      # limit; coverage is checked downstream, see docs/scope.md)
+      - name: Refresh reference data
+        run: |
+          python fetch_reference.py
+          python flatten_reference.py
+          python load_reference.py
+
+      - name: Fetch and merge changed launches
+        run: python refresh.py
+
+  # Same isolated build, tests and deploy as a push to main
+  dbt:
+    needs: ingest
+    uses: ./.github/workflows/dbt.yml
+    secrets: inherit
+
+  checks:
+    needs: dbt
+    runs-on: ubuntu-latest
+    env:
+      DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-pipeline.txt dbt-databricks==1.12.3
+
+      - name: Completeness against the API count
+        run: python check_completeness.py
+
+      - name: Source freshness
+        working-directory: azimuth_dbt
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << PROFILE
+          azimuth_dbt:
+            target: prod
+            outputs:
+              prod:
+                type: databricks
+                catalog: azimuth
+                schema: silver
+                host: ${{ secrets.DBT_DATABRICKS_HOST }}
+                http_path: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+                token: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+                threads: 1
+          PROFILE
+          dbt source freshness

@@ -54,7 +54,8 @@ select
     fam.family_name,
     fam.family_root_name,
     fam.family_source,
-    c.vehicle_class,
+    -- a vehicle new since the last seed review is 'unclassified' until reviewed
+    coalesce(c.vehicle_class, 'unclassified')    as vehicle_class,
     cast(cfg.reusable as boolean)                as is_reusable,
     cast(cfg.maiden_flight as date)              as maiden_flight,
     c.notes                                      as classification_notes,

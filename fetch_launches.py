@@ -73,4 +73,5 @@ def fetch_all_pages():
     print(f"Done. {state['page'] - 1} pages fetched.")
 
 
-fetch_all_pages()
+if __name__ == "__main__":
+    fetch_all_pages()

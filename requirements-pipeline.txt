@@ -1,0 +1,8 @@
+# Minimal dependencies for the scheduled refresh (GitHub Actions).
+# requirements.txt is the full local environment, including Jupyter.
+requests==2.34.2
+pandas==2.3.3
+pyarrow==25.0.0
+databricks-sdk==0.117.0
+databricks-sql-connector==4.3.0
+python-dotenv==1.2.2

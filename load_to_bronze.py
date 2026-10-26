@@ -139,5 +139,6 @@ def load(volume_file):
             print(f"  rows in bronze: {cur.fetchone()[0]}")
 
 
-target = upload_to_volume()
-load(target)
+if __name__ == "__main__":
+    target = upload_to_volume()
+    load(target)
