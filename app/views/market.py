@@ -1,4 +1,8 @@
-"""Market Overview: cadence, market share and the active fleet."""
+"""Market Overview: cadence, market share and the active fleet.
+
+Neutral by default: no provider is highlighted until one is picked as the
+focus, and the focus is always shown even when it is small.
+"""
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -17,8 +21,12 @@ years = sorted(share["launch_year"].unique(), reverse=True)
 full_years = sorted(share.loc[~share["is_partial_year"], "launch_year"].unique(), reverse=True)
 partial_years = set(share.loc[share["is_partial_year"], "launch_year"].unique())
 
-year = st.selectbox("Year", years, index=years.index(full_years[0]),
-                    format_func=lambda y: f"{y} (to date)" if y in partial_years else str(y))
+p1, p2 = st.columns([1, 1])
+with p1:
+    focus = ui.focus_picker()
+with p2:
+    year = st.selectbox("Year", years, index=years.index(full_years[0]),
+                        format_func=lambda y: f"{y} (to date)" if y in partial_years else str(y))
 
 this_year = share[share["launch_year"] == year].sort_values("attempts", ascending=False)
 last_year = share[share["launch_year"] == year - 1]
@@ -35,9 +43,26 @@ c1.metric("Orbital attempts", f"{attempts:,}",
           delta_color="off" if year in partial_years else "normal")
 c2.metric("Success rate", ui.pct(successes / attempts), help="Full successes divided by attempts. "
           "Partial failures do not count as successes.")
-c3.metric(f"{leader['provider_name']} share", ui.pct(leader["share_of_attempts"]),
-          help="Share of the year's orbital attempts.")
-c4.metric("Providers that launched", f"{len(this_year)}")
+
+if focus:
+    mine = this_year[this_year["provider_name"] == focus]
+    if len(mine):
+        row = mine.iloc[0]
+        rank = int(this_year["attempts"].rank(ascending=False, method="min")[mine.index[0]])
+        c3.metric(f"{focus} share", ui.pct(row["share_of_attempts"]),
+                  help="Share of the year's orbital attempts.")
+        c4.metric(f"{focus} rank", f"#{rank} of {len(this_year)}",
+                  help=f"{int(row['attempts'])} attempts, {int(row['successes'])} successes.")
+    else:
+        c3.metric(f"{focus} share", "0%", help=f"No orbital attempts by {focus} in {year}.")
+        c4.metric("Providers that launched", f"{len(this_year)}")
+else:
+    top_two = this_year.head(2)["share_of_attempts"].sum()
+    c3.metric("Largest provider", leader["provider_name"],
+              help=f"{ui.pct(leader['share_of_attempts'])} of the year's attempts.")
+    c4.metric("Providers that launched", f"{len(this_year)}",
+              help=f"The two largest account for {ui.pct(top_two)} of attempts.")
+
 if year in partial_years:
     st.caption(f"{year} is a partial year, through {ui.data_as_of()}.")
 
@@ -50,9 +75,12 @@ with left:
                            (2000, int(share["launch_year"].max())), label_visibility="collapsed")
     window = share[share["launch_year"].between(start, end)]
 
-    # the five busiest providers in the window get their own color
+    # the busiest providers in the window get their own color; the focus
+    # provider always does, and always in amber
     top = (window.groupby("provider_name")["attempts"].sum()
            .sort_values(ascending=False).head(5).index.tolist())
+    if focus:
+        top = [focus] + [p for p in top if p != focus][:4]
     window = window.assign(provider=window["provider_name"].where(
         window["provider_name"].isin(top), "Everyone else"))
     by_year = (window.groupby(["launch_year", "provider", "is_partial_year"], as_index=False)
@@ -61,11 +89,12 @@ with left:
     by_year["provider_rank"] = by_year["provider"].map(order.index)
     by_year["alpha"] = by_year["is_partial_year"].map({True: 0.4, False: 1.0})
 
+    palette = ([ui.AMBER] + ui.NEUTRAL[:len(top) - 1]) if focus else ui.NEUTRAL[:len(top)]
     chart = alt.Chart(by_year).mark_bar().encode(
         x=alt.X("launch_year:O", title=None, axis=alt.Axis(labelAngle=0, labelOverlap=True)),
         y=alt.Y("sum(attempts):Q", title="Attempts"),
         color=alt.Color("provider:N", sort=order,
-                        scale=alt.Scale(domain=order, range=ui.SERIES[:len(top)] + [ui.GRID])),
+                        scale=alt.Scale(domain=order, range=palette + [ui.GRID])),
         order=alt.Order("provider_rank:Q"),
         opacity=alt.Opacity("alpha:Q", scale=None, legend=None),
         tooltip=[alt.Tooltip("launch_year:O", title="Year"), alt.Tooltip("provider:N", title="Provider"),
@@ -77,14 +106,17 @@ with left:
 
 with right:
     st.subheader(f"Share of attempts, {year}")
-    top_share = this_year.head(8).copy()
-    rest = this_year.iloc[8:]
+    shown = this_year.head(8)
+    if focus and focus in this_year["provider_name"].values and focus not in shown["provider_name"].values:
+        shown = pd.concat([shown.head(7), this_year[this_year["provider_name"] == focus]])
+    rest = this_year[~this_year["provider_name"].isin(shown["provider_name"])]
+    top_share = shown.copy()
     if len(rest):
         top_share = pd.concat([top_share, pd.DataFrame([{
             "provider_name": f"{len(rest)} others", "share_of_attempts": rest["share_of_attempts"].sum(),
             "attempts": rest["attempts"].sum()}])])
     top_share["label"] = top_share["share_of_attempts"].map(lambda v: f"{v * 100:.1f}%")
-    top_share["is_leader"] = top_share["provider_name"] == leader["provider_name"]
+    top_share["is_focus"] = top_share["provider_name"] == focus
 
     base = alt.Chart(top_share).encode(
         y=alt.Y("provider_name:N", sort=None, title=None, axis=alt.Axis(labelLimit=220)),
@@ -92,7 +124,7 @@ with right:
                 scale=alt.Scale(domain=[0, max(0.6, top_share["share_of_attempts"].max() * 1.15)])),
     )
     bars = base.mark_bar(cornerRadiusEnd=3, height=18).encode(
-        color=alt.condition("datum.is_leader", alt.value(ui.AMBER), alt.value(ui.BLUE)),
+        color=alt.condition("datum.is_focus", alt.value(ui.AMBER), alt.value(ui.BLUE)),
         tooltip=[alt.Tooltip("provider_name:N", title="Provider"),
                  alt.Tooltip("attempts:Q", title="Attempts"),
                  alt.Tooltip("share_of_attempts:Q", title="Share", format=".1%")])
@@ -105,36 +137,47 @@ st.caption("Flew in the two years before the latest launch in the data. "
            "vs expected: reliability gap, in points, to a typical vehicle of the same era "
            "at the same stage of life.")
 
-f1, f2 = st.columns([1, 3])
-lens = f1.segmented_control("Count flights by", ["Family", "Configuration"], default="Family",
-                            help="Family groups every version of a vehicle (all Falcon 9 blocks "
-                                 "together). Configuration treats each version separately.")
+f1, f2, f3 = st.columns([1.2, 2, 1.2])
+lens_label = f1.segmented_control("Count flights by", ["Family", "Configuration"], default="Family",
+                                  help="Family groups every version of a vehicle (all Falcon 9 "
+                                       "blocks together). Configuration treats each version "
+                                       "separately.")
+lens = (lens_label or "Family").lower()
 min_flights = f2.slider("Minimum flights", 1, 50, 3)
+only_focus = f3.toggle(f"Only {focus} vehicles", value=True) if focus else False
 
-fleet = reliability[(reliability["lens"] == (lens or "Family").lower())
+fleet = reliability[(reliability["lens"] == lens)
                     & reliability["is_active"]
-                    & (reliability["flights"] >= min_flights)].sort_values("flights", ascending=False)
+                    & (reliability["flights"] >= min_flights)].copy()
+fleet["provider"] = fleet["unit_key"].map(lambda k: ui.provider_of(lens, k))
+if only_focus:
+    fleet = fleet[fleet["provider"] == focus]
+fleet = fleet.sort_values("flights", ascending=False)
 
-st.dataframe(
-    fleet.assign(
-        reliability=fleet["reliability"] * 100,
-        reliability_lower_95=fleet["reliability_lower_95"] * 100,
-        reliability_vs_expected=fleet["reliability_vs_expected"] * 100,
-    )[["unit_name", "era", "flights", "reliability", "reliability_lower_95",
-       "reliability_vs_expected", "latest_flight_at"]],
-    hide_index=True,
-    width="stretch",
-    column_config={
-        "unit_name": st.column_config.TextColumn("Vehicle"),
-        "era": st.column_config.TextColumn("First flew"),
-        "flights": st.column_config.NumberColumn("Flights"),
-        "reliability": st.column_config.NumberColumn("Reliability", format="%.1f%%"),
-        "reliability_lower_95": st.column_config.NumberColumn(
-            "95% lower bound", format="%.1f%%",
-            help="With this much evidence, reliability is at least this high (95% confidence)."),
-        "reliability_vs_expected": st.column_config.NumberColumn("vs expected", format="%+.1f"),
-        "latest_flight_at": st.column_config.DateColumn("Latest flight", format="D MMM YYYY"),
-    },
-)
+if fleet.empty:
+    st.info("No active vehicles match these filters.")
+else:
+    st.dataframe(
+        fleet.assign(
+            reliability=fleet["reliability"] * 100,
+            reliability_lower_95=fleet["reliability_lower_95"] * 100,
+            reliability_vs_expected=fleet["reliability_vs_expected"] * 100,
+        )[["unit_name", "provider", "era", "flights", "reliability", "reliability_lower_95",
+           "reliability_vs_expected", "latest_flight_at"]],
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "unit_name": st.column_config.TextColumn("Vehicle"),
+            "provider": st.column_config.TextColumn("Provider"),
+            "era": st.column_config.TextColumn("First flew"),
+            "flights": st.column_config.NumberColumn("Flights"),
+            "reliability": st.column_config.NumberColumn("Reliability", format="%.1f%%"),
+            "reliability_lower_95": st.column_config.NumberColumn(
+                "95% lower bound", format="%.1f%%",
+                help="With this much evidence, reliability is at least this high (95% confidence)."),
+            "reliability_vs_expected": st.column_config.NumberColumn("vs expected", format="%+.1f"),
+            "latest_flight_at": st.column_config.DateColumn("Latest flight", format="D MMM YYYY"),
+        },
+    )
 
 ui.footer()

@@ -37,15 +37,26 @@ maturation = data.table("mart_maturation")
 debut = data.table("mart_debut_curve")
 
 LENS = "family"
-fleet = reliability[(reliability["lens"] == LENS) & reliability["is_active"]] \
-    .sort_values("flights")
+fleet = reliability[(reliability["lens"] == LENS) & reliability["is_active"]].copy()
+fleet["provider"] = fleet["unit_key"].map(lambda k: ui.provider_of(LENS, k))
+fleet = fleet.sort_values("unit_name")
 names = fleet["unit_name"].tolist()
+provider_by_name = dict(zip(fleet["unit_name"], fleet["provider"]))
+
+focus = ui.focus_picker()
+
+# Default vehicle: the newest active vehicle with at least two flights,
+# from the focus provider if one is picked, otherwise from anyone.
+candidates = fleet[fleet["flights"] >= 2]
+if focus and (candidates["provider"] == focus).any():
+    candidates = candidates[candidates["provider"] == focus]
+newest = candidates.sort_values("first_flight_at").iloc[-1]["unit_name"]
 
 inputs, results = st.columns([1, 2.4], gap="large")
 
 with inputs:
-    vehicle = st.selectbox("Vehicle", names,
-                           index=names.index("New Glenn") if "New Glenn" in names else 0,
+    vehicle = st.selectbox("Vehicle", names, index=names.index(newest),
+                           format_func=lambda n: f"{n} ({provider_by_name.get(n) or 'unknown'})",
                            help="Active vehicles, counted by family.")
     v = fleet[fleet["unit_name"] == vehicle].iloc[0]
     history = maturation[(maturation["lens"] == LENS) & (maturation["unit_name"] == vehicle)] \

@@ -68,11 +68,58 @@ SHORT_NAMES = {
     "Indian Space Research Organization": "ISRO",
     "Japan Aerospace Exploration Agency": "JAXA",
     "Mitsubishi Heavy Industries": "MHI",
+    "Khrunichev State Research and Production Space Center": "Khrunichev",
 }
 
 
 def short(name):
     return SHORT_NAMES.get(name, name)
+
+
+WHOLE_MARKET = "Whole market"
+NEUTRAL = [BLUE, LIGHT, "#3FB68B", "#C38BFF", "#E46F6F", "#7D8B99", "#F7D774"]  # no amber
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def unit_providers(lens):
+    """Map each vehicle (family or configuration) to the provider of its latest launch.
+
+    Latest rather than most frequent, so Proton shows its current operator
+    rather than the Soviet program that flew it for decades.
+    """
+    launches = data.table("fct_launches")[["vehicle_key", "provider_key", "launched_at"]]
+    vehicles = data.table("dim_vehicle")[["vehicle_key", "family_name"]]
+    providers = data.table("dim_provider")[["provider_key", "provider_name"]]
+    df = launches.merge(vehicles, on="vehicle_key").merge(providers, on="provider_key")
+    unit = "family_name" if lens == "family" else "vehicle_key"
+    latest = df.sort_values("launched_at").drop_duplicates(unit, keep="last")
+    return dict(zip(latest[unit].astype(str), latest["provider_name"].map(short)))
+
+
+def provider_of(lens, unit_key):
+    return unit_providers(lens).get(str(unit_key))
+
+
+def focus_picker():
+    """Shared 'Focus provider' selector. Neutral by default, kept across pages and in the URL."""
+    share = data.table("mart_market_share_yearly")
+    names = (share.assign(name=share["provider_name"].map(short))
+                  .groupby("name")["attempts"].sum().sort_values(ascending=False).index.tolist())
+    options = [WHOLE_MARKET] + sorted(names)
+
+    current = st.session_state.get("focus_provider") or st.query_params.get("provider", WHOLE_MARKET)
+    if current not in options:
+        current = WHOLE_MARKET
+
+    choice = st.selectbox(
+        "Focus provider", options, index=options.index(current),
+        help="Highlight one provider across every page. Whole market highlights no one.")
+    st.session_state["focus_provider"] = choice
+    if choice == WHOLE_MARKET:
+        st.query_params.pop("provider", None)
+        return None
+    st.query_params["provider"] = choice
+    return choice
 
 
 def pct(x, digits=1):

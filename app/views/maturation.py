@@ -15,11 +15,8 @@ reliability = data.table("mart_vehicle_reliability")
 debut = data.table("mart_debut_curve")
 survival = data.table("mart_failure_free_survival")
 
-DEFAULTS = {
-    "family": ["Falcon 9", "Atlas V", "Electron", "Ariane 6", "Vulcan", "New Glenn"],
-    "configuration": ["Falcon 9 Block 5", "Electron", "Ariane 64", "Ariane 62", "Vulcan VC2S",
-                      "New Glenn"],
-}
+focus = ui.focus_picker()
+FOCUS_COLORS = [ui.AMBER, "#F7D774", "#E8834A"]
 
 c1, c2, c3 = st.columns([1.2, 1.2, 1])
 lens_label = c1.segmented_control(
@@ -37,9 +34,22 @@ max_flight = c3.slider("Flights shown", 10, 300, 100, step=10)
 
 units = reliability[(reliability["lens"] == lens) & (reliability["flights"] >= 2)] \
     .sort_values(["is_active", "flights"], ascending=False)
+units = units.assign(provider=units["unit_key"].map(lambda k: ui.provider_of(lens, k)))
 names = units["unit_name"].tolist()
-default = [n for n in DEFAULTS[lens] if n in names] or names[:5]
-chosen = st.multiselect("Vehicles", names, default=default, max_selections=8)
+provider_by_name = dict(zip(units["unit_name"], units["provider"]))
+active = units[units["is_active"]]
+
+# Neutral default: the most-flown active vehicles. With a focus provider:
+# its active vehicles first, then the most-flown vehicles of everyone else.
+if focus:
+    own = active[active["provider"] == focus]["unit_name"].head(3).tolist()
+    others = active[active["provider"] != focus]["unit_name"].head(6 - len(own)).tolist()
+    default = own + others
+else:
+    default = active["unit_name"].head(6).tolist()
+
+chosen = st.multiselect("Vehicles", names, default=default, max_selections=8,
+                        format_func=lambda n: f"{n} ({provider_by_name.get(n) or 'unknown'})")
 
 if not chosen:
     st.info("Pick at least one vehicle.")
@@ -48,8 +58,13 @@ if not chosen:
 curves = maturation[(maturation["lens"] == lens) & maturation["unit_name"].isin(chosen)
                     & (maturation["flight_number"] <= max_flight)]
 y_field = "reliability_lower_95" if measure == "Lower bound" else "cum_reliability"
+# focus vehicles in amber shades, everyone else in neutral colors
+mine = [n for n in chosen if focus and provider_by_name.get(n) == focus]
+rest = [n for n in chosen if n not in mine]
+palette = {n: FOCUS_COLORS[i % len(FOCUS_COLORS)] for i, n in enumerate(mine)}
+palette.update({n: ui.NEUTRAL[i % len(ui.NEUTRAL)] for i, n in enumerate(rest)})
 color = alt.Color("unit_name:N", sort=chosen,
-                  scale=alt.Scale(domain=chosen, range=ui.SERIES[:len(chosen)]))
+                  scale=alt.Scale(domain=chosen, range=[palette[n] for n in chosen]))
 
 lines = alt.Chart(curves).mark_line(strokeWidth=2.5, interpolate="step-after").encode(
     x=alt.X("flight_number:Q", title="Flight number", scale=alt.Scale(domain=[1, max_flight])),
