@@ -56,12 +56,31 @@ newest = candidates.sort_values("first_flight_at").iloc[-1]["unit_name"]
 if st.query_params.get("vehicle") in names:
     newest = st.query_params["vehicle"]
 
+# scenario settings can come from the link, so a scenario can be shared
+PERF_CODES = {"half": "Half the typical failure rate", "typical": "Typical for its era",
+              "x1.5": "1.5x the typical failure rate", "x2": "Twice the typical failure rate"}
+CODE_OF = {label: code for code, label in PERF_CODES.items()}
+qp = st.query_params
+
+
+def param_int(name, low, high):
+    try:
+        value = int(qp.get(name))
+        return value if low <= value <= high else None
+    except (TypeError, ValueError):
+        return None
+
+
 inputs, results = st.columns([1, 2.4], gap="large")
 
 with inputs:
     vehicle = st.selectbox("Vehicle", names, index=names.index(newest),
                            format_func=lambda n: f"{n} ({provider_by_name.get(n) or 'unknown'})",
                            help="Active vehicles, counted by family.")
+    # a different vehicle starts from its own cadence, not the previous one's
+    if st.session_state.get("sim_vehicle") not in (None, vehicle):
+        st.query_params.pop("cadence", None)
+    st.session_state["sim_vehicle"] = vehicle
     st.query_params["vehicle"] = vehicle
     v = fleet[fleet["unit_name"] == vehicle].iloc[0]
     history = maturation[(maturation["lens"] == LENS) & (maturation["unit_name"] == vehicle)] \
@@ -70,14 +89,26 @@ with inputs:
 
     last_year = history[history["launched_at"] >= last_flight - timedelta(days=365)]
     cadence = st.number_input(
-        "Flights per year", min_value=1, max_value=MAX_CADENCE, value=max(1, len(last_year)),
+        "Flights per year", min_value=1, max_value=MAX_CADENCE,
+        value=param_int("cadence", 1, MAX_CADENCE) or max(1, len(last_year)),
         step=1, help=f"Defaults to this vehicle's last 12 months of flights ({len(last_year)}). "
                      f"Any value from 1 to {MAX_CADENCE}.")
     scenario = st.select_slider("Performance from here on", list(SCENARIOS),
-                                value="Typical for its era")
-    target_label = st.segmented_control("Proven means a lower bound of", ["80%", "90%"],
-                                        default="80%") or "80%"
+                                value=PERF_CODES.get(qp.get("perf"), "Typical for its era"))
+    target_label = st.segmented_control(
+        "Proven means a lower bound of", ["80%", "90%"],
+        default="90%" if qp.get("target") == "90" else "80%") or "80%"
     target = 0.8 if target_label == "80%" else 0.9
+    start_label = st.segmented_control(
+        "Count dates from", ["Today", "Latest flight"],
+        default="Latest flight" if qp.get("start") == "last" else "Today",
+        help="Today: the next flight happens after today. Latest flight: dates continue from "
+             "the vehicle's latest flight in the data.") or "Today"
+
+    # everything above is kept in the link
+    st.query_params.update({"cadence": str(cadence), "perf": CODE_OF[scenario],
+                            "target": target_label.rstrip("%"),
+                            "start": "today" if start_label == "Today" else "last"})
 
     st.markdown(
         f"**Record so far:** {int(v['successes'])} of {int(v['flights'])} "
@@ -148,18 +179,29 @@ def flight_label(k):
         else f"flight {int(v['flights'] + k)}"
 
 
+start_date = pd.Timestamp.now(tz=last_flight.tz).normalize() if start_label == "Today" \
+    else last_flight
+
+
 def when(k):
     if not np.isfinite(k):
         return f"beyond {HORIZON} flights"
-    return (last_flight + timedelta(days=365.25 * k / cadence)).strftime("%b %Y")
+    return (start_date + timedelta(days=365.25 * k / cadence)).strftime("%b %Y")
 
 
 with results:
-    st.caption(
-        f"Projection starts from **{vehicle}'s latest flight in the data, "
-        f"{last_flight.strftime('%d %b %Y')}** (flight {int(v['flights'])}). "
-        f"The data runs through {ui.data_as_of()}."
-    )
+    if start_label == "Today":
+        st.caption(
+            f"Dates count from **today, {start_date.strftime('%d %b %Y')}**, after "
+            f"{vehicle}'s {int(v['flights'])} flights so far (latest "
+            f"{last_flight.strftime('%d %b %Y')}). The data runs through {ui.data_as_of()}."
+        )
+    else:
+        st.caption(
+            f"Dates count from **{vehicle}'s latest flight in the data, "
+            f"{last_flight.strftime('%d %b %Y')}** (flight {int(v['flights'])}). "
+            f"The data runs through {ui.data_as_of()}."
+        )
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Next five flights all succeed", ui.pct(clean_five),
               help=f"Share of simulated futures in which flights {int(v['flights']) + 1} to "
@@ -226,8 +268,12 @@ with results:
 with st.expander("How the simulation works"):
     st.markdown(
         f"""
-**Starting point.** The projection starts from the vehicle's own latest flight in the data, not
-from today. Dates are that flight plus the number of future flights divided by the cadence.
+**Starting point.** The projection always starts from the vehicle's record so far. Dates count
+either from today (the next flight happens after today) or from the vehicle's latest flight in the
+data, and add the number of future flights divided by the cadence.
+
+**Sharing.** The vehicle and every setting are kept in the page's link, so copying the address
+shares the exact scenario.
 
 **Success rates.** Each future flight succeeds with the probability that vehicles from the
 **{v['era']}** era had at the same point in their life (the success rate by flight number on the

@@ -37,6 +37,14 @@ def footer():
         "[Methodology](/methodology) · "
         "[Code](https://github.com/idepablo/azimuth-launch-tool)"
     )
+    exported = datetime.strptime(m["exported_at"][:10], "%Y-%m-%d").strftime("%d %b %Y")
+    vehicles = data.table("dim_vehicle")
+    pending = int((vehicles["vehicle_class"] == "unclassified").sum())
+    status = f"Last refresh {exported}"
+    if pending:
+        status += (f" · {pending} new vehicle{'s' if pending != 1 else ''} awaiting "
+                   "classification, not yet counted")
+    st.caption(status)
     st.caption("© 2026 Ignacio de Pablo. All rights reserved. "
                "Launch data © The Space Devs, used with attribution.")
 
