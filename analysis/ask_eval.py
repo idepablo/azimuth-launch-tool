@@ -120,6 +120,9 @@ def matches(expected, got_cells):
                     return True
         elif str(expected).strip().lower() == str(cell).strip().lower():
             return True
+        # a date matches a timestamp on the same day ("2024-07-09" vs "2024-07-09 13:00:00")
+        elif len(str(expected)) == 10 and str(cell).startswith(str(expected)):
+            return True
     return False
 
 
