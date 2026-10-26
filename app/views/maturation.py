@@ -89,7 +89,7 @@ st.dataframe(
         reliability_vs_expected=table["reliability_vs_expected"] * 100,
     )[["unit_name", "flights", "successes", "reliability", "reliability_lower_95",
        "flights_to_lb_80", "flights_to_lb_90", "reliability_vs_expected"]],
-    hide_index=True, use_container_width=True,
+    hide_index=True, width="stretch",
     column_config={
         "unit_name": st.column_config.TextColumn("Vehicle"),
         "flights": st.column_config.NumberColumn("Flights"),

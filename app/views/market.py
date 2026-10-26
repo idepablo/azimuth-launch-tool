@@ -123,7 +123,7 @@ st.dataframe(
     )[["unit_name", "era", "flights", "reliability", "reliability_lower_95",
        "reliability_vs_expected", "latest_flight_at"]],
     hide_index=True,
-    use_container_width=True,
+    width="stretch",
     column_config={
         "unit_name": st.column_config.TextColumn("Vehicle"),
         "era": st.column_config.TextColumn("First flew"),

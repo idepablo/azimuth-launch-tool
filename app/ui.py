@@ -54,7 +54,7 @@ def style(chart, height=320):
 
 
 def show(chart, height=320):
-    st.altair_chart(style(chart, height), use_container_width=True, theme=None)
+    st.altair_chart(style(chart, height), width="stretch", theme=None)
 
 
 SHORT_NAMES = {
