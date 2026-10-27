@@ -2,7 +2,7 @@
 
 A data analytics platform that tracks how the global launch market is evolving (cadence, reliability, reuse, mass to orbit, and market share) to assess where a new heavy-lift vehicle realistically stands against the field.
 
-**Status:** In active development. Phases 0 to 6 complete: ingestion, silver, gold star schema, analysis marts, daily refresh, and the Streamlit app. Ask AZIMUTH (v2) is next. Built as an end-to-end BI engineering project on Databricks.
+**Status:** Complete and live at [azimuth-launch.streamlit.app](https://azimuth-launch.streamlit.app/). All seven phases done: ingestion, silver, gold star schema, analysis marts, daily refresh, the Streamlit app, and Ask AZIMUTH. Built as an end-to-end BI engineering project on Databricks.
 
 ---
 
