@@ -5,7 +5,9 @@ runs on the same snapshot, so the expected answer stays current as the data
 changes. A question passes if every value the reference returns appears in
 the model's result (numbers within 0.5%, fractions also accepted as
 percentages, text case-insensitively). Out-of-scope questions pass if the
-model declines them.
+model declines them. Follow-up questions are asked after a first question,
+with its answer as context, the way the app does it. Every answer must also
+contain text.
 
 Usage (needs ANTHROPIC_API_KEY):
     python analysis/ask_eval.py <snapshot_dir> <output_json>
@@ -93,6 +95,17 @@ QUESTIONS = [
     ("¿Cuál es la capital de Francia?", None),
 ]
 
+# follow-ups: the first question is asked for real, then the follow-up uses its
+# answer as context, as in the app. Only the follow-up is scored.
+FOLLOW_UPS = [
+    ("Which providers launched the most in 2025?", "and in 2015?",
+     "select provider from yearly_share where launch_year=2015 order by attempts desc limit 1"),
+    ("How many failures has Electron had?", "what about Falcon 9?",
+     "select failures from vehicles where lens='family' and vehicle='Falcon 9'"),
+    ("¿Cuántos lanzamientos orbitales hubo en 2020?", "¿y en 2021?",
+     "select count(*) from launches where scope_class='orbital' and is_outcome_known and launch_year=2021"),
+]
+
 
 def values(frame):
     return [v for row in frame.itertuples(index=False) for v in row]
@@ -139,9 +152,10 @@ def main(snapshot_dir, out_path):
     frames = ask.tables()
     as_of = data.manifest()["data_as_of"]
     results = []
-    for question, reference in QUESTIONS:
+
+    def score(question, reference, context=None, label=None):
         try:
-            r = ask.ask(question, frames, as_of)
+            r = ask.ask(question, frames, as_of, context)
         except Exception as e:
             r = {"in_scope": True, "rows": None, "sql": None, "answer": None, "error": str(e)[:200]}
         if reference is None:
@@ -151,11 +165,23 @@ def main(snapshot_dir, out_path):
             expected = values(ask.run_sql(reference, frames))
             got = values(r["rows"]) if r.get("rows") is not None else []
             passed = bool(r["in_scope"]) and r.get("error") is None and \
-                all(matches(e, got) for e in expected)
-        results.append({"question": question, "passed": passed, "expected": str(expected),
+                bool((r.get("answer") or "").strip()) and all(matches(e, got) for e in expected)
+        results.append({"question": label or question, "passed": passed, "expected": str(expected),
                         "in_scope": r["in_scope"], "sql": r.get("sql"), "answer": r.get("answer"),
                         "error": r.get("error")})
-        print(("PASS " if passed else "FAIL ") + question)
+        print(("PASS " if passed else "FAIL ") + (label or question))
+        return r
+
+    for question, reference in QUESTIONS:
+        score(question, reference)
+
+    for first, follow_up, reference in FOLLOW_UPS:
+        try:
+            r = ask.ask(first, frames, as_of)
+            context = [(first, r.get("answer") or "")]
+        except Exception:
+            context = [(first, "")]
+        score(follow_up, reference, context, label=f"{first} -> {follow_up}")
 
     in_scope = [x for x in results if x["expected"] != "decline"]
     out_scope = [x for x in results if x["expected"] == "decline"]

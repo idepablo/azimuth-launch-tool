@@ -8,7 +8,9 @@ Flow for each question:
      only a single SELECT is accepted.
   3. If the query fails, the model gets the error and one chance to fix it.
   4. The model turns the result rows into a short answer, in the language
-     of the question. The SQL is always shown with the answer.
+     of the question. Follow-ups are restated as a full question in step 1,
+     so this step needs no conversation history. If it comes back empty, it
+     is retried once, then a plain summary of the rows is shown instead.
 
 Nothing outside the snapshot is used, so the answers can only be as good as
 the data the rest of the app shows.
@@ -84,11 +86,13 @@ PLAN_TOOL = {
         "type": "object",
         "properties": {
             "in_scope": {"type": "boolean"},
+            "question": {"type": "string",
+                         "description": "The question restated in full so it stands on its own, in the user's language. For a follow-up such as 'and in 2015?', fold in what it refers to: 'Which providers launched the most in 2015?'."},
             "sql": {"type": "string", "description": "One SELECT query, or empty if out of scope."},
             "note": {"type": "string",
                      "description": "One short sentence, in the language of the question and in plain words, on how it was interpreted (no SQL, table or column names)."},
         },
-        "required": ["in_scope", "sql", "note"],
+        "required": ["in_scope", "question", "sql", "note"],
     },
 }
 
@@ -199,7 +203,8 @@ def plan(question, as_of, error=None, previous_sql=None, context=None):
     return block.input
 
 
-def answer_text(question, note, sql, rows, as_of, context=None):
+def answer_text(question, note, sql, rows, as_of):
+    """Short answer from the rows. The question is already standalone (see plan)."""
     table = rows.to_csv(index=False) if len(rows) else "(no rows)"
     prompt = (f"Question: {question}\nHow it was interpreted: {note}\nSQL: {sql}\n"
               f"Result (first {MAX_ROWS} rows):\n{table}\n\n"
@@ -209,10 +214,31 @@ def answer_text(question, note, sql, rows, as_of, context=None):
               "question asks to explain, say in plain words how the figure was worked out, using "
               "AZIMUTH's definitions. Never mention SQL, queries, tables or column names. Do not "
               "add facts that are not in the result. Do not use em dashes.")
-    response = _client().messages.create(
-        model=MODEL, max_tokens=400, system=_system(as_of),
-        messages=_turns(context) + [{"role": "user", "content": prompt}])
-    return "".join(b.text for b in response.content if b.type == "text").strip()
+    for _ in range(2):  # an empty reply is rare; one retry, then a plain fallback
+        response = _client().messages.create(
+            model=MODEL, max_tokens=400, system=_system(as_of),
+            messages=[{"role": "user", "content": prompt}])
+        text = "".join(b.text for b in response.content if b.type == "text").strip()
+        if text:
+            return text
+    return fallback_answer(rows)
+
+
+def fallback_answer(rows):
+    """Used only if the model returns no text: the top rows, in plain form."""
+    if rows is None or not len(rows):
+        return "Nothing in the data matched that question."
+    lines = []
+    for row in rows.head(5).itertuples(index=False):
+        lines.append(", ".join(_plain(v) for v in row))
+    more = " Full results are in Details." if len(rows) > 5 else ""
+    return "Here is what the data shows: " + "; ".join(lines) + "." + more
+
+
+def _plain(v):
+    if isinstance(v, float):
+        return f"{v * 100:.1f}%" if 0 < abs(v) <= 1 else f"{v:,.0f}" if v == int(v) else f"{v:,.2f}"
+    return str(v)
 
 
 def ask(question, frames, as_of, context=None):
@@ -225,6 +251,7 @@ def ask(question, frames, as_of, context=None):
         return {"in_scope": False, "answer": None, "sql": None, "rows": None,
                 "note": p.get("note"), "error": None}
     sql = p["sql"].strip().rstrip(";")
+    full_question = (p.get("question") or "").strip() or question
     try:
         rows = run_sql(sql, frames)
     except Exception as first_error:
@@ -236,5 +263,6 @@ def ask(question, frames, as_of, context=None):
             return {"in_scope": True, "answer": None, "sql": sql, "rows": None,
                     "note": p.get("note"), "error": str(second_error)[:300]}
     return {"in_scope": True,
-            "answer": answer_text(question, p.get("note"), sql, rows, as_of, context),
+            "answer": answer_text(full_question, p.get("note"), sql, rows, as_of),
+            "question": full_question,
             "sql": sql, "rows": rows, "note": p.get("note"), "error": None}
