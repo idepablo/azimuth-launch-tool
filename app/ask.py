@@ -8,8 +8,8 @@ Flow for each question:
      only a single SELECT is accepted.
   3. If the query fails, the model gets the error and one chance to fix it.
   4. The model turns the result rows into a short answer, in the language
-     of the question. Follow-ups are restated as a full question in step 1,
-     so this step needs no conversation history. If it comes back empty, it
+     of the question. For a follow-up, the earlier exchange is passed as
+     plain text inside the same message. If the reply comes back empty, it
      is retried once, then a plain summary of the rows is shown instead.
 
 Nothing outside the snapshot is used, so the answers can only be as good as
@@ -86,13 +86,11 @@ PLAN_TOOL = {
         "type": "object",
         "properties": {
             "in_scope": {"type": "boolean"},
-            "question": {"type": "string",
-                         "description": "The question restated in full so it stands on its own, in the user's language. For a follow-up such as 'and in 2015?', fold in what it refers to: 'Which providers launched the most in 2015?'."},
             "sql": {"type": "string", "description": "One SELECT query, or empty if out of scope."},
             "note": {"type": "string",
                      "description": "One short sentence, in the language of the question and in plain words, on how it was interpreted (no SQL, table or column names)."},
         },
-        "required": ["in_scope", "question", "sql", "note"],
+        "required": ["in_scope", "sql", "note"],
     },
 }
 
@@ -203,10 +201,19 @@ def plan(question, as_of, error=None, previous_sql=None, context=None):
     return block.input
 
 
-def answer_text(question, note, sql, rows, as_of):
-    """Short answer from the rows. The question is already standalone (see plan)."""
+def answer_text(question, note, sql, rows, as_of, context=None):
+    """Short answer from the rows, in a single message.
+
+    Earlier exchanges go in as text, not as chat turns: with prior assistant
+    turns in the history, the model sometimes returned no text at all.
+    """
     table = rows.to_csv(index=False) if len(rows) else "(no rows)"
-    prompt = (f"Question: {question}\nHow it was interpreted: {note}\nSQL: {sql}\n"
+    earlier = "".join(f"Earlier question: {q}\nEarlier answer: {a or '(none)'}\n"
+                      for q, a in context or [])
+    if earlier:
+        earlier = ("Earlier in the conversation (for context only; the new question may be a "
+                   f"follow-up to it):\n{earlier}\n")
+    prompt = (f"{earlier}Question: {question}\nHow it was interpreted: {note}\nSQL: {sql}\n"
               f"Result (first {MAX_ROWS} rows):\n{table}\n\n"
               "Answer the question from this result only, in the same language as the question, "
               "in one to three plain sentences. Give the key numbers. Percentages in the data are "
@@ -251,7 +258,6 @@ def ask(question, frames, as_of, context=None):
         return {"in_scope": False, "answer": None, "sql": None, "rows": None,
                 "note": p.get("note"), "error": None}
     sql = p["sql"].strip().rstrip(";")
-    full_question = (p.get("question") or "").strip() or question
     try:
         rows = run_sql(sql, frames)
     except Exception as first_error:
@@ -263,6 +269,5 @@ def ask(question, frames, as_of, context=None):
             return {"in_scope": True, "answer": None, "sql": sql, "rows": None,
                     "note": p.get("note"), "error": str(second_error)[:300]}
     return {"in_scope": True,
-            "answer": answer_text(full_question, p.get("note"), sql, rows, as_of),
-            "question": full_question,
+            "answer": answer_text(question, p.get("note"), sql, rows, as_of, context),
             "sql": sql, "rows": rows, "note": p.get("note"), "error": None}
