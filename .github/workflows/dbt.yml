@@ -40,11 +40,13 @@ jobs:
                 http_path: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
                 token: ${{ secrets.DBT_DATABRICKS_TOKEN }}
                 threads: 1
+                connect_retries: 5
+                connect_timeout: 30
           EOF
 
       - name: Build and test
         run: |
-          dbt build | tee build.log
+          ../.github/scripts/retry.sh 4 300 sh -c "dbt build > build.log 2>&1; status=\$?; cat build.log; exit \$status"
           # warnings do not fail the build; surface them on the run page
           if grep -qE "WARN=[1-9]" build.log; then
             echo "::warning title=dbt build::Passed with warnings. Most likely a new vehicle that needs a row in seeds/vehicle_classification.csv."
@@ -90,10 +92,12 @@ jobs:
                 http_path: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
                 token: ${{ secrets.DBT_DATABRICKS_TOKEN }}
                 threads: 1
+                connect_retries: 5
+                connect_timeout: 30
           EOF
 
       - name: Deploy to silver and gold
-        run: dbt build
+        run: ../.github/scripts/retry.sh 4 300 dbt build
 
       # The app reads a parquet snapshot of gold, not Databricks directly.
       # Published to an orphan `data` branch, replaced on every deploy, so
@@ -105,7 +109,7 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
         run: |
           pip install -r requirements-pipeline.txt
-          python export_snapshot.py snapshot
+          .github/scripts/retry.sh 4 300 python export_snapshot.py snapshot
           # rerun the simulator backtest on the new data; the app shows it
           python analysis/backtest.py snapshot snapshot/backtest.json
 

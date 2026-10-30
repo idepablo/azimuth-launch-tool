@@ -37,7 +37,7 @@ jobs:
       - name: Refresh reference data
         run: |
           for step in fetch_reference flatten_reference load_reference; do
-            if ! python $step.py > $step.log 2>&1; then
+            if ! .github/scripts/retry.sh 4 300 sh -c "python $step.py > $step.log 2>&1"; then
               cat $step.log
               echo "::error title=$step failed::$(tail -n 4 $step.log | tr '\n' ' ' | cut -c1-900)"
               exit 1
@@ -46,7 +46,7 @@ jobs:
           done
 
       - name: Fetch and merge changed launches
-        run: python refresh.py
+        run: .github/scripts/retry.sh 4 300 python refresh.py
 
   # Same isolated build, tests and deploy as a push to main
   dbt:
