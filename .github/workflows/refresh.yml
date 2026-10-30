@@ -32,11 +32,18 @@ jobs:
 
       # Reference snapshots come from the development mirror (no rate
       # limit; coverage is checked downstream, see docs/scope.md)
+      # each script's last lines go into an annotation on failure, so the
+      # cause shows on the run's summary page without opening the log
       - name: Refresh reference data
         run: |
-          python fetch_reference.py
-          python flatten_reference.py
-          python load_reference.py
+          for step in fetch_reference flatten_reference load_reference; do
+            if ! python $step.py > $step.log 2>&1; then
+              cat $step.log
+              echo "::error title=$step failed::$(tail -n 4 $step.log | tr '\n' ' ' | cut -c1-900)"
+              exit 1
+            fi
+            cat $step.log
+          done
 
       - name: Fetch and merge changed launches
         run: python refresh.py
