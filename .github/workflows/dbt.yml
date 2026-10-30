@@ -44,6 +44,14 @@ jobs:
                 connect_timeout: 30
           EOF
 
+      - name: Start the SQL warehouse
+        working-directory: .
+        env:
+          DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+        run: .github/scripts/retry.sh 4 120 python start_warehouse.py
+
       - name: Build and test
         run: |
           ../.github/scripts/retry.sh 4 300 sh -c "dbt build > build.log 2>&1; status=\$?; cat build.log; exit \$status"
@@ -95,6 +103,14 @@ jobs:
                 connect_retries: 5
                 connect_timeout: 30
           EOF
+
+      - name: Start the SQL warehouse
+        working-directory: .
+        env:
+          DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+        run: .github/scripts/retry.sh 4 120 python start_warehouse.py
 
       - name: Deploy to silver and gold
         run: ../.github/scripts/retry.sh 4 300 dbt build
