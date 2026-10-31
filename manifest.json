@@ -1,0 +1,15 @@
+{
+  "exported_at": "2026-10-31T16:16:35Z",
+  "tables": {
+    "dim_provider": 99,
+    "dim_vehicle": 486,
+    "fct_launches": 7662,
+    "mart_cadence_yearly": 852,
+    "mart_market_share_yearly": 852,
+    "mart_maturation": 14828,
+    "mart_vehicle_reliability": 591,
+    "mart_debut_curve": 80,
+    "mart_failure_free_survival": 167
+  },
+  "data_as_of": "2026-10-31"
+}
