@@ -25,4 +25,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as error:
+        # shown on the run page; the full log is hard to reach
+        print(f"::error title=Start the SQL warehouse::{str(error)[:800]}")
+        raise
