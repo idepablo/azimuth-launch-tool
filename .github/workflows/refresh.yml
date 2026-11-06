@@ -31,7 +31,7 @@ jobs:
         run: pip install -r requirements-pipeline.txt
 
       - name: Start the SQL warehouse
-        run: .github/scripts/retry.sh 4 120 python start_warehouse.py
+        run: .github/scripts/retry.sh 10 1200 python start_warehouse.py
 
       # Reference snapshots come from the development mirror (no rate
       # limit; coverage is checked downstream, see docs/scope.md)
