@@ -1,0 +1,364 @@
+{
+  "model": "claude-haiku-5-5",
+  "run_at": "2026-11-14T06:35:52Z",
+  "data_as_of": "2026-11-13",
+  "questions": 39,
+  "passed": 39,
+  "in_scope_questions": 33,
+  "in_scope_passed": 33,
+  "out_of_scope_questions": 6,
+  "out_of_scope_declined": 6,
+  "results": [
+    {
+      "question": "How many orbital launch attempts were there in 2025?",
+      "passed": true,
+      "expected": "[324]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(*) AS orbital_attempts_2025 FROM launches WHERE scope_class = 'orbital' AND is_outcome_known AND launch_year = 2025",
+      "answer": "There were 324 orbital launch attempts in 2025. This counts only orbital launches with a known outcome, following AZIMUTH's standard definition.",
+      "error": null
+    },
+    {
+      "question": "Which provider launched the most in 2025?",
+      "passed": true,
+      "expected": "['SpaceX']",
+      "in_scope": true,
+      "sql": "SELECT provider, attempts, successes, share_of_attempts, rank_by_attempts, is_partial_year FROM yearly_share WHERE launch_year = 2025 ORDER BY attempts DESC LIMIT 50",
+      "answer": "SpaceX launched the most in 2025, with 165 orbital attempts that had a known outcome. That is about 51% of the year's 324 attempts, and all 165 succeeded. CASC was second with 69 attempts.",
+      "error": null
+    },
+    {
+      "question": "What was SpaceX's share of orbital attempts in 2025?",
+      "passed": true,
+      "expected": "[0.5092592592592593]",
+      "in_scope": true,
+      "sql": "SELECT launch_year, provider, attempts, successes, share_of_attempts, rank_by_attempts, is_partial_year FROM yearly_share WHERE provider ILIKE 'SpaceX' AND launch_year = 2025",
+      "answer": "In 2025, SpaceX made 165 orbital attempts, all of them successful. That was 50.9% of all orbital attempts that year, the highest share of any provider.",
+      "error": null
+    },
+    {
+      "question": "How many orbital attempts did Rocket Lab make in 2025?",
+      "passed": true,
+      "expected": "[18]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(*) AS orbital_attempts FROM launches WHERE provider ILIKE 'Rocket Lab' AND launch_year = 2025 AND scope_class = 'orbital' AND is_outcome_known",
+      "answer": "Rocket Lab made 18 orbital attempts in 2025 with a known outcome. This counts only orbital launches whose result is confirmed, so suborbital flights and launches still awaiting an outcome are not included.",
+      "error": null
+    },
+    {
+      "question": "What was the overall orbital success rate in 2025?",
+      "passed": true,
+      "expected": "[0.9722222222222222]",
+      "in_scope": true,
+      "sql": "SELECT launch_year, COUNT(*) AS attempts, SUM(CASE WHEN outcome = 'success' THEN 1 ELSE 0 END) AS successes, ROUND(SUM(CASE WHEN outcome = 'success' THEN 1 ELSE 0 END) * 1.0 / COUNT(*), 4) AS success_rate FROM launches WHERE scope_class = 'orbital' AND is_outcome_known AND launch_year = 2025 GROUP BY launch_year",
+      "answer": "In 2025, 315 of 324 orbital launches with a known outcome succeeded, an overall success rate of 97.2%. Partial failures count as not successful.",
+      "error": null
+    },
+    {
+      "question": "How many orbital launches did CASC make in 2024?",
+      "passed": true,
+      "expected": "[49]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(*) AS orbital_attempts_2024 FROM launches WHERE provider ILIKE 'CASC' AND launch_year = 2024 AND scope_class = 'orbital' AND is_outcome_known",
+      "answer": "CASC made 49 orbital launch attempts in 2024 with a known outcome. This counts only orbital attempts whose result is confirmed, so suborbital flights and launches still awaiting an outcome are excluded.",
+      "error": null
+    },
+    {
+      "question": "\u00bfCu\u00e1ntos lanzamientos orbitales hubo en 2020?",
+      "passed": true,
+      "expected": "[114]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(*) AS orbital_launches_2020 FROM launches WHERE scope_class = 'orbital' AND is_outcome_known AND launch_year = 2020",
+      "answer": "En 2020 hubo 114 lanzamientos orbitales con resultado conocido. Para contarlos se tomaron los lanzamientos orbitales cuyo resultado ya est\u00e1 confirmado, sin incluir suborbitales ni lanzamientos no terrestres.",
+      "error": null
+    },
+    {
+      "question": "\u00bfQu\u00e9 proveedor tuvo m\u00e1s lanzamientos orbitales en 2010?",
+      "passed": true,
+      "expected": "['CASC']",
+      "in_scope": true,
+      "sql": "SELECT provider, COUNT(*) AS orbital_attempts, SUM(CASE WHEN outcome = 'success' THEN 1 ELSE 0 END) AS successes FROM launches WHERE scope_class = 'orbital' AND is_outcome_known AND launch_year = 2010 GROUP BY provider ORDER BY orbital_attempts DESC LIMIT 50",
+      "answer": "CASC fue el proveedor con m\u00e1s lanzamientos orbitales en 2010, con 15 intentos con resultado conocido, y todos tuvieron \u00e9xito. Le siguieron Roscosmos, con 9, y United Launch Alliance e International Launch Services, con 8 cada uno.",
+      "error": null
+    },
+    {
+      "question": "In which year did SpaceX first make more than 100 orbital launch attempts?",
+      "passed": true,
+      "expected": "[2024]",
+      "in_scope": true,
+      "sql": "SELECT launch_year, COUNT(*) AS attempts FROM launches WHERE provider ILIKE 'SpaceX' AND scope_class = 'orbital' AND is_outcome_known GROUP BY launch_year HAVING COUNT(*) > 100 ORDER BY launch_year LIMIT 1",
+      "answer": "SpaceX first passed 100 orbital launch attempts with a known outcome in 2024, when it recorded 134.",
+      "error": null
+    },
+    {
+      "question": "How many providers made at least one orbital attempt in 2025?",
+      "passed": true,
+      "expected": "[25]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(DISTINCT provider) AS providers_with_orbital_attempts_2025 FROM launches WHERE scope_class = 'orbital' AND is_outcome_known AND launch_year = 2025",
+      "answer": "In 2025, 25 providers made at least one orbital launch attempt with a known outcome. Only orbital attempts with a confirmed result were counted, so suborbital flights and attempts still awaiting an outcome are excluded.",
+      "error": null
+    },
+    {
+      "question": "How many orbital launch failures were there in 2023?",
+      "passed": true,
+      "expected": "[9]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(*) AS orbital_failures_2023 FROM launches WHERE scope_class = 'orbital' AND is_outcome_known AND outcome = 'failure' AND launch_year = 2023",
+      "answer": "There were 9 orbital launch failures in 2023. This counts orbital launches with a known outcome of failure, and partial failures are not included.",
+      "error": null
+    },
+    {
+      "question": "Which year had the most orbital launch attempts?",
+      "passed": true,
+      "expected": "[2025]",
+      "in_scope": true,
+      "sql": "SELECT launch_year, COUNT(*) AS orbital_attempts FROM launches WHERE scope_class = 'orbital' AND is_outcome_known GROUP BY launch_year ORDER BY orbital_attempts DESC LIMIT 1",
+      "answer": "In 2025, there were 324 orbital launch attempts with a known outcome, the most of any year in the data.",
+      "error": null
+    },
+    {
+      "question": "How many orbital attempts did Blue Origin make in 2025?",
+      "passed": true,
+      "expected": "[2]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(*) AS orbital_attempts_2025 FROM launches WHERE provider ILIKE 'Blue Origin' AND launch_year = 2025 AND scope_class = 'orbital' AND is_outcome_known",
+      "answer": "Blue Origin made 2 orbital launch attempts in 2025 with a known outcome. This counts orbital launches only, and excludes suborbital flights and launches whose result is not yet known.",
+      "error": null
+    },
+    {
+      "question": "What was Arianespace's rank by orbital attempts in 2025?",
+      "passed": true,
+      "expected": "[6]",
+      "in_scope": true,
+      "sql": "SELECT launch_year, provider, attempts, successes, share_of_attempts, rank_by_attempts, is_partial_year FROM yearly_share WHERE launch_year = 2025 AND provider ILIKE '%Arianespace%'",
+      "answer": "In 2025, Arianespace ranked 6th by orbital attempts, with 7 attempts and 7 successes. That is about 2.2% of all orbital attempts that year, and the year is complete.",
+      "error": null
+    },
+    {
+      "question": "Which provider has had the most orbital launch failures in total?",
+      "passed": true,
+      "expected": "['Soviet Space Program']",
+      "in_scope": true,
+      "sql": "SELECT provider, COUNT(*) AS orbital_failures FROM launches WHERE scope_class = 'orbital' AND is_outcome_known AND outcome = 'failure' GROUP BY provider ORDER BY orbital_failures DESC LIMIT 50",
+      "answer": "Soviet Space Program has had the most orbital launch failures, with 168, well ahead of United States Air Force at 101. Partial failures are not counted.",
+      "error": null
+    },
+    {
+      "question": "How many orbital launch attempts were there in the 1960s?",
+      "passed": true,
+      "expected": "[989]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(*) AS orbital_attempts_1960s FROM launches WHERE scope_class = 'orbital' AND is_outcome_known AND launch_year BETWEEN 1960 AND 1969",
+      "answer": "There were 989 orbital launch attempts with a known outcome in the 1960s (1960 to 1969). This counts orbital launches only, so suborbital flights and launches with an unknown outcome are not included.",
+      "error": null
+    },
+    {
+      "question": "\u00bfCu\u00e1ntos lanzamientos orbitales hizo SpaceX en 2024?",
+      "passed": true,
+      "expected": "[134]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(*) AS lanzamientos_orbitales_spacex_2024 FROM launches WHERE provider ILIKE 'SpaceX' AND launch_year = 2024 AND scope_class = 'orbital' AND is_outcome_known",
+      "answer": "SpaceX realiz\u00f3 134 lanzamientos orbitales con resultado conocido en 2024. Este n\u00famero cuenta solo los intentos orbitales cuyo resultado ya se conoce, seg\u00fan la definici\u00f3n de AZIMUTH.",
+      "error": null
+    },
+    {
+      "question": "How many failures has Electron had?",
+      "passed": true,
+      "expected": "[4]",
+      "in_scope": true,
+      "sql": "SELECT vehicle, provider, flights, successes, failures, partial_failures, reliability FROM vehicles WHERE lens = 'family' AND vehicle ILIKE '%electron%' ORDER BY flights DESC LIMIT 50",
+      "answer": "Electron has had 4 failures across 91 orbital flights with a known outcome, and none were partial failures. That gives 87 successes and a reliability of about 95.6%.",
+      "error": null
+    },
+    {
+      "question": "How many orbital flights has Falcon 9 flown?",
+      "passed": true,
+      "expected": "[702]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(*) AS falcon_9_orbital_flights FROM launches WHERE vehicle_family ILIKE 'Falcon 9' AND scope_class = 'orbital' AND is_outcome_known",
+      "answer": "Falcon 9 has flown 702 orbital launches with a known outcome. This counts orbital attempts only, matching the Falcon 9 family name, and excludes suborbital, non-Earth and pre-launch-failure records as well as launches whose outcome is not yet known.",
+      "error": null
+    },
+    {
+      "question": "What is Atlas V's success rate?",
+      "passed": true,
+      "expected": "[1.0]",
+      "in_scope": true,
+      "sql": "SELECT vehicle_family AS vehicle, COUNT(*) AS attempts, SUM(CASE WHEN outcome = 'success' THEN 1 ELSE 0 END) AS successes, ROUND(SUM(CASE WHEN outcome = 'success' THEN 1 ELSE 0 END) * 1.0 / COUNT(*), 4) AS success_rate FROM launches WHERE scope_class = 'orbital' AND is_outcome_known AND vehicle_family ILIKE '%Atlas V%' GROUP BY vehicle_family ORDER BY attempts DESC LIMIT 50",
+      "answer": "Atlas V has a success rate of 100%, with all 110 known-outcome orbital attempts counted as strict successes.",
+      "error": null
+    },
+    {
+      "question": "When was Ariane 6's first flight?",
+      "passed": true,
+      "expected": "['2024-07-09']",
+      "in_scope": true,
+      "sql": "SELECT launch_id, launch_name, launched_at, provider, vehicle, vehicle_family, scope_class, status_name, outcome FROM launches WHERE vehicle_family ILIKE '%Ariane 6%' OR vehicle ILIKE '%Ariane 6%' ORDER BY launched_at LIMIT 1",
+      "answer": "Ariane 6's first flight was on 9 July 2024, when the Ariane 62 maiden flight launched at 19:00 and was recorded as a success.",
+      "error": null
+    },
+    {
+      "question": "Which vehicle family has flown the most orbital flights?",
+      "passed": true,
+      "expected": "['Soyuz']",
+      "in_scope": true,
+      "sql": "SELECT vehicle_family, COUNT(*) AS orbital_attempts, SUM(CASE WHEN outcome = 'success' THEN 1 ELSE 0 END) AS successes FROM launches WHERE scope_class = 'orbital' AND is_outcome_known GROUP BY vehicle_family ORDER BY orbital_attempts DESC LIMIT 50",
+      "answer": "Soyuz has flown the most orbital flights, with 974 attempts whose outcome is known, of which 949 were successes. Falcon 9 is second with 702 attempts and 698 successes.",
+      "error": null
+    },
+    {
+      "question": "What is the 95% lower bound on Falcon 9's reliability?",
+      "passed": true,
+      "expected": "[0.9854414037286926]",
+      "in_scope": true,
+      "sql": "SELECT vehicle, lens, flights, successes, failures, partial_failures, reliability, reliability_lower_95, era, is_active FROM vehicles WHERE lens = 'family' AND vehicle ILIKE 'Falcon 9' ORDER BY flights DESC LIMIT 50",
+      "answer": "Falcon 9's 95% lower bound on reliability is about 98.5% (0.985). This is based on 702 orbital flights with a known outcome: 698 successes, 3 failures and 1 partial failure, for an overall reliability of 99.4%.",
+      "error": null
+    },
+    {
+      "question": "At which flight did Atlas V's lower bound first reach 90%?",
+      "passed": true,
+      "expected": "[35.0]",
+      "in_scope": true,
+      "sql": "SELECT vehicle, lens, provider, flights, reliability_lower_95, flights_to_lb_90 FROM vehicles WHERE lens = 'family' AND vehicle ILIKE 'Atlas V%' ORDER BY flights DESC LIMIT 50",
+      "answer": "Atlas V's 95% lower bound first reached 90% at its 35th flight. Across its 110 flights, the family's lower bound now stands at about 96.6%.",
+      "error": null
+    },
+    {
+      "question": "How many vehicle families are currently active?",
+      "passed": true,
+      "expected": "[50]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(*) AS active_vehicle_families FROM vehicles WHERE lens = 'family' AND is_active",
+      "answer": "**50 vehicle families** are currently active, meaning each flew at least once in the two years before the data date (13 November 2026).",
+      "error": null
+    },
+    {
+      "question": "How many flights has the Long March 2 family made?",
+      "passed": true,
+      "expected": "[235]",
+      "in_scope": true,
+      "sql": "SELECT vehicle AS vehicle_family, flights FROM vehicles WHERE lens = 'family' AND vehicle ILIKE '%Long March 2%' ORDER BY flights DESC LIMIT 50",
+      "answer": "The Long March 2 family has made 235 flights. This counts orbital flights with a known outcome, which is how AZIMUTH tracks vehicle records.",
+      "error": null
+    },
+    {
+      "question": "\u00bfCu\u00e1l es la tasa de \u00e9xito de Soyuz 2?",
+      "passed": true,
+      "expected": "[0.966824644549763]",
+      "in_scope": true,
+      "sql": "SELECT vehicle, provider, flights, successes, failures, partial_failures, reliability, reliability_lower_95, era, is_active FROM vehicles WHERE lens = 'family' AND vehicle ILIKE '%Soyuz 2%' ORDER BY flights DESC LIMIT 50",
+      "answer": "La familia Soyuz 2 (Roscosmos) tiene una tasa de \u00e9xito del 96,7 %: 204 de sus 211 vuelos orbitales con resultado conocido fueron \u00e9xitos, y las 2 fallas parciales no cuentan como \u00e9xito. Con un 95 % de confianza, su l\u00edmite",
+      "error": null
+    },
+    {
+      "question": "How many partial failures has Falcon 9 had?",
+      "passed": true,
+      "expected": "[1]",
+      "in_scope": true,
+      "sql": "SELECT vehicle, SUM(partial_failures) AS partial_failures FROM vehicles WHERE lens = 'family' AND vehicle ILIKE 'Falcon 9' GROUP BY vehicle",
+      "answer": "Falcon 9 has had **1** partial failure in AZIMUTH's records. This counts orbital flights with a known outcome, and a partial failure is not counted as a success.",
+      "error": null
+    },
+    {
+      "question": "How many vehicle families made their first orbital flight in 2025?",
+      "passed": true,
+      "expected": "[4]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(DISTINCT vehicle) AS vehicle_families_first_flight_2025 FROM vehicles WHERE lens = 'family' AND EXTRACT(YEAR FROM first_flight_at) = 2025",
+      "answer": "Four vehicle families made their first orbital flight in 2025. This counts families with a known-outcome orbital flight on record, dated by their first flight.",
+      "error": null
+    },
+    {
+      "question": "Across all vehicles, what share of first flights succeed, counting by family?",
+      "passed": true,
+      "expected": "[0.583941605839416]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(*) AS families, SUM(CASE WHEN first_outcome = 'success' THEN 1 ELSE 0 END) AS first_flight_successes, ROUND(1.0 * SUM(CASE WHEN first_outcome = 'success' THEN 1 ELSE 0 END) / COUNT(*), 4) AS first_flight_success_share FROM (SELECT l.vehicle_family, l.outcome AS first_outcome, ROW_NUMBER() OVER (PARTITION BY l.vehicle_family ORDER BY l.launched_at, l.launch_id) AS rn FROM launches l WHERE l.scope_class = 'orbital' AND l.is_outcome_known AND l.vehicle_family IS NOT NULL) t WHERE rn = 1",
+      "answer": "Of 137 vehicle families, 80 succeeded on their first known orbital flight, a first-flight success share of 58.4% (0.5839). Partial failures count as not successful.",
+      "error": null
+    },
+    {
+      "question": "What does a Falcon 9 launch cost?",
+      "passed": true,
+      "expected": "decline",
+      "in_scope": false,
+      "sql": null,
+      "answer": null,
+      "error": null
+    },
+    {
+      "question": "Why did the Amos-6 explosion happen?",
+      "passed": true,
+      "expected": "decline",
+      "in_scope": false,
+      "sql": null,
+      "answer": null,
+      "error": null
+    },
+    {
+      "question": "Who is the CEO of Rocket Lab?",
+      "passed": true,
+      "expected": "decline",
+      "in_scope": false,
+      "sql": null,
+      "answer": null,
+      "error": null
+    },
+    {
+      "question": "What will the weather be at Cape Canaveral tomorrow?",
+      "passed": true,
+      "expected": "decline",
+      "in_scope": false,
+      "sql": null,
+      "answer": null,
+      "error": null
+    },
+    {
+      "question": "How much payload can Starship carry to orbit?",
+      "passed": true,
+      "expected": "decline",
+      "in_scope": false,
+      "sql": null,
+      "answer": null,
+      "error": null
+    },
+    {
+      "question": "\u00bfCu\u00e1l es la capital de Francia?",
+      "passed": true,
+      "expected": "decline",
+      "in_scope": false,
+      "sql": null,
+      "answer": null,
+      "error": null
+    },
+    {
+      "question": "Which providers launched the most in 2025? -> and in 2015?",
+      "passed": true,
+      "expected": "['CASC']",
+      "in_scope": true,
+      "sql": "SELECT provider, COUNT(*) AS orbital_attempts, SUM(CASE WHEN outcome = 'success' THEN 1 ELSE 0 END) AS successes FROM launches WHERE launch_year = 2015 AND scope_class = 'orbital' AND is_outcome_known GROUP BY provider ORDER BY orbital_attempts DESC LIMIT 50",
+      "answer": "In 2015, CASC led with 19 orbital launches, all successful. Arianespace and United Launch Alliance tied for second with 12 each, also all successful. SpaceX had 7, with 6 successes.",
+      "error": null
+    },
+    {
+      "question": "How many failures has Electron had? -> what about Falcon 9?",
+      "passed": true,
+      "expected": "[3]",
+      "in_scope": true,
+      "sql": "SELECT vehicle, provider, flights, successes, failures, partial_failures, reliability, reliability_lower_95, era, is_active FROM vehicles WHERE lens = 'family' AND vehicle ILIKE 'Falcon 9' ORDER BY flights DESC LIMIT 50",
+      "answer": "Falcon 9 has had 3 failures and 1 partial failure in 702 orbital flights with a known outcome. Its success rate is about 99.4% (698 successes), and the partial failure does not count as a success.",
+      "error": null
+    },
+    {
+      "question": "\u00bfCu\u00e1ntos lanzamientos orbitales hubo en 2020? -> \u00bfy en 2021?",
+      "passed": true,
+      "expected": "[145]",
+      "in_scope": true,
+      "sql": "SELECT COUNT(*) AS orbital_launches_2021 FROM launches WHERE launch_year = 2021 AND scope_class = 'orbital' AND is_outcome_known",
+      "answer": "En 2021 hubo 145 lanzamientos orbitales con resultado conocido. Se cuentan igual que en 2020, es decir, solo los intentos orbitales cuyo resultado ya se conoce.",
+      "error": null
+    }
+  ]
+}
