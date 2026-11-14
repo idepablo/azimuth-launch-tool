@@ -2,7 +2,7 @@
 
 A data analytics platform that tracks how the global launch market is evolving (cadence, reliability, reuse, mass to orbit, and market share) to assess where a new heavy-lift vehicle realistically stands against the field.
 
-**Status:** Complete and live at [azimuth-launch.streamlit.app](https://azimuth-launch.streamlit.app/). All seven phases done: ingestion, silver, gold star schema, analysis marts, daily refresh, the Streamlit app, and Ask AZIMUTH. Built as an end-to-end BI engineering project on Databricks.
+**Status:** Complete and live at [azimuth-launch.streamlit.app](https://azimuth-launch.streamlit.app/). All seven phases done: ingestion, silver, gold star schema, analysis marts, daily refresh, the Streamlit app, and Ask AZIMUTH. Built as an end-to-end BI engineering project on Databricks; the daily refresh now runs the same dbt project on DuckDB in GitHub Actions (see [Where the daily refresh runs](docs/scope.md#where-the-daily-refresh-runs)).
 
 ---
 
@@ -67,10 +67,11 @@ The fetch and the load are separate scripts. The API is rate limited to roughly 
 
 | Layer | Tool |
 |---|---|
-| Platform | Databricks (Free Edition) |
-| Storage | Delta Lake |
+| Platform | Databricks (Free Edition), where the project was built and modeled |
+| Daily refresh | DuckDB in GitHub Actions, same dbt project |
+| Storage | Delta Lake on Databricks; parquet on the `bronze` branch for the daily refresh |
 | Ingestion | Python (REST API) |
-| Transformation | dbt |
+| Transformation | dbt (dbt-databricks and dbt-duckdb) |
 | Analysis | SQL, pandas, lifelines |
 | Visualization | Streamlit / Databricks dashboards |
 | Version control | Git / GitHub / Databricks Repos |
@@ -91,13 +92,19 @@ azimuth/
 ├── fetch_reference.py            # agencies + launcher configurations -> raw_reference/
 ├── flatten_reference.py          # raw_reference/ -> agencies, configurations, families parquet
 ├── load_reference.py             # reference snapshots -> bronze (full replace)
-├── refresh.py                    # daily incremental fetch + merge, page by page
+├── refresh.py                    # incremental fetch + merge into Databricks bronze
+├── refresh_local.py              # the same, into parquet bronze (daily refresh on DuckDB)
+├── bronze_local.py               # parquet bronze: read, write, merge rule, raw archive
+├── load_reference_local.py       # reference snapshots -> parquet bronze
+├── export_bronze.py              # one-time copy of Databricks bronze to the bronze branch
+├── engine.py                     # DuckDB (default) or Databricks for export and checks
+├── start_warehouse.py            # starts the Databricks SQL warehouse before a Databricks run
 ├── check_completeness.py         # bronze row count vs the API's count
 ├── check_new_vehicles.py         # names vehicles missing from the classification seed
 ├── requirements-pipeline.txt     # minimal dependencies for the scheduled refresh
 ├── export_snapshot.py            # gold tables -> parquet snapshot for the app
 ├── analysis/backtest.py          # tests the simulator against history at past cutoff dates
-├── analysis/ask_eval.py          # exam for Ask AZIMUTH: 36 questions with reference queries
+├── analysis/ask_eval.py          # exam for Ask AZIMUTH: 39 questions with reference queries
 ├── app/                          # Streamlit app (reads the snapshot, not Databricks)
 │   ├── streamlit_app.py          # entry point and navigation
 │   ├── views/                    # Market Overview, Maturation Race, Scenario Simulator, Methodology
@@ -105,12 +112,15 @@ azimuth/
 ├── azimuth_dbt/
 │   ├── models/staging/           # stg_launches, stg_vehicle_families
 │   ├── models/marts/             # star schema + analysis marts (gold)
+│   ├── macros/cross_db.sql       # the few spots where Databricks SQL and DuckDB differ
 │   ├── seeds/                    # vehicle_classification, family_overrides (reviewed)
 │   └── tests/                    # data tests beyond the schema.yml ones
 ├── audit.ipynb                   # Phase 0 exploratory data audit
 └── .github/workflows/
-    ├── dbt.yml                   # build + test in an isolated schema, then deploy on main
-    └── refresh.yml               # daily: reference data, incremental load, dbt, checks
+    ├── pipeline.yml              # daily refresh + every build, on DuckDB
+    ├── databricks-refresh.yml    # the same refresh on Databricks, run by hand
+    ├── databricks-build.yml      # build + test in an isolated schema, then deploy (Databricks)
+    └── export-bronze.yml         # one-time copy of bronze out of Databricks
 ```
 
 `raw/`, `raw_reference/`, and `staging/` are generated data and are not tracked.
@@ -284,7 +294,7 @@ This loads the seeds, builds staging, the gold star schema and the analysis mart
 streamlit run app/streamlit_app.py
 ```
 
-The app reads a parquet snapshot of the gold tables from this repository's `data` branch, which CI republishes after every successful deploy. It never connects to Databricks, so it holds no credentials and visitors use none of the workspace's compute. To run it on your own snapshot, set `AZIMUTH_DATA_DIR` to a folder produced by `python export_snapshot.py <folder>`.
+The app reads a parquet snapshot of the gold tables from this repository's `data` branch, which CI republishes after every successful build. It never connects to a warehouse, so it holds no credentials and visitors use none of the workspace's compute. To run it on your own snapshot, set `AZIMUTH_DATA_DIR` to a folder produced by `python export_snapshot.py <folder>`.
 
 **9. Keep it current**
 
@@ -294,7 +304,9 @@ After the one-time backfill, `refresh.py` loads only launches whose record chang
 python refresh.py
 ```
 
-In this repository it runs daily on GitHub Actions (`refresh.yml`), followed by the dbt build, tests and deploy, a completeness check against the API's count, a source freshness check, and a list of any new vehicles that need a row in the classification seed. It needs three repository secrets: `DBT_DATABRICKS_HOST`, `DBT_DATABRICKS_HTTP_PATH` and `DBT_DATABRICKS_TOKEN`.
+In this repository the daily refresh runs on DuckDB in GitHub Actions (`pipeline.yml`): `refresh_local.py` does the same incremental load into parquet files kept on the `bronze` branch, followed by the dbt build and tests, the app snapshot, a completeness check against the API's count, a source freshness check, and a list of any new vehicles that need a row in the classification seed. Nothing is published unless every test passes. It needs no secrets apart from the optional `ANTHROPIC_API_KEY` for the Ask AZIMUTH exam.
+
+To run the same refresh on Databricks instead, use `databricks-refresh.yml` (manual). It needs three repository secrets: `DBT_DATABRICKS_HOST`, `DBT_DATABRICKS_HTTP_PATH` and `DBT_DATABRICKS_TOKEN`. Why the daily run moved is explained in [docs/scope.md](docs/scope.md#where-the-daily-refresh-runs).
 
 ---
 

@@ -314,8 +314,9 @@ Two limits belong on the methodology page:
 
 ## Data operations
 
-After the one-time backfill, the data is kept current by a scheduled refresh (`refresh.yml`, daily
-on GitHub Actions, also runnable by hand).
+After the one-time backfill, the data is kept current by a scheduled refresh (daily on GitHub
+Actions, also runnable by hand). Since November 2026 it runs on DuckDB (`pipeline.yml`, see the
+next section); the description below applies to both engines.
 
 - **Incremental fetch.** `refresh.py` asks the production API only for past launches whose record
   changed since the newest `last_updated` in bronze, minus a one-day overlap. The merge is
@@ -340,9 +341,36 @@ on GitHub Actions, also runnable by hand).
   marts), and the run page names the vehicle so the seed can be updated. The first refresh found
   one, Pallas-1 (Galactic Energy, demo flight 2026-09-01), now classified as orbital.
 
-Limits: GitHub disables scheduled workflows on a repository with no activity for 60 days, and the
-Databricks token has an expiry date. Either one stops the refresh, and the freshness check is what
-makes that visible.
+Limits: GitHub disables scheduled workflows on a repository with no activity for 60 days, which
+would stop the refresh; the freshness check is what makes that visible.
+
+## Where the daily refresh runs
+
+AZIMUTH was built on Databricks Free Edition, and the daily refresh ran there until November 2026.
+Free Edition then started refusing to start compute for the scheduled job ("Cannot create the
+resource, please try again later"). A manual start from the web page worked, but automatic starts
+were refused on every run from 10 to 13 November, each retried for three hours. Free Edition
+promises no compute availability, and its documented limits allow compute to be switched off for the
+rest of a day, so this is not something the pipeline can fix.
+
+**Decision: the daily refresh, pushes and pull requests run the same dbt project on DuckDB inside
+GitHub Actions.** It is free, and does not depend on a warehouse starting. Databricks remains where
+the project was built and modeled, and its workflows are kept and still run by hand.
+
+- **Same models.** Five spots differ between Databricks SQL and DuckDB: date formatting, month and day
+  names, the weekend flag, and the date generator. They are macros (`macros/cross_db.sql`) that pick
+  the right SQL for the engine. Every other model and test is the same SQL on both.
+- **Bronze as parquet.** Bronze lives on the repository's `bronze` branch: one parquet file per table,
+  all columns strings, as in Databricks, plus a gzipped archive of every raw API page fetched since
+  the move. The ingestion keeps the same watermark and merge rule (`bronze_local.py`): a row is
+  replaced only by a newer `last_updated`. Bronze is pushed back only after every dbt test passes.
+- **Starting point.** Bronze was copied from Databricks once (`export_bronze.py`), so history carries
+  over exactly.
+- **Checked before switching.** Built from that copy, all nine tables the app reads were identical to
+  the last Databricks snapshot (rows, values and types), and the simulator backtest gave the same
+  results.
+- **Trade-off.** The DuckDB build runs from scratch each time instead of keeping silver and gold in a
+  warehouse. At this data size that takes under a minute.
 
 ## Simulator backtest
 
@@ -493,3 +521,4 @@ verified.
 | 2026-10-26 | Phase 5: daily incremental refresh with page-by-page merge, completeness check against the API count (gap closed), source freshness, and a warning path for vehicles new since the last seed review. Pallas-1 added to the seed. |
 | 2026-10-26 | Simulator backtest added (five cutoffs, three checks), rerun on every deploy and shown on the app's Methodology page. |
 | 2026-10-26 | Ask AZIMUTH: question to SQL over the snapshot in a sandboxed DuckDB, out-of-scope handling with reports by email, per-visit limit, and a 36-question exam run after every deploy. |
+| 2026-11-14 | Daily refresh moved from Databricks to DuckDB in GitHub Actions after Free Edition stopped starting compute for scheduled runs; same dbt project with five engine-specific macros, bronze as parquet on a `bronze` branch, output verified identical before switching. |
