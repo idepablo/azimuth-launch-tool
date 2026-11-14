@@ -21,3 +21,8 @@ fetch_state.json
 
 # app snapshot export (published to the data branch by CI)
 /snapshot/
+
+# DuckDB build output and local bronze (the pipeline keeps bronze on its own branch)
+*.duckdb
+*.duckdb.wal
+/bronze/
