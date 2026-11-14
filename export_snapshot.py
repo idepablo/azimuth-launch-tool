@@ -1,10 +1,10 @@
 """Export the gold tables the app reads to parquet, plus a manifest.
 
-The app does not query Databricks. After every successful deploy, CI runs
+The app does not query the warehouse. After every successful build, CI runs
 this script and publishes the files to the repository's `data` branch,
-which the app reads. That keeps credentials out of the app, keeps visitor
-traffic off the Free Edition compute quota, and makes every chart load
-from memory. The whole snapshot is a few MB.
+which the app reads. That keeps credentials out of the app and makes every
+chart load from memory. The whole snapshot is a few MB. Reads from DuckDB
+by default, or Databricks with AZIMUTH_ENGINE=databricks (see engine.py).
 
 Usage: python export_snapshot.py <output_dir>
 """
@@ -13,7 +13,7 @@ import os
 import sys
 from datetime import datetime, timezone
 
-from load_to_bronze import get_connection
+from engine import ENGINE, fetch_df, get_connection
 
 TABLES = {
     "dim_provider": "SELECT * FROM azimuth.gold.dim_provider",
@@ -41,8 +41,11 @@ def main(out_dir):
     with get_connection() as conn:
         with conn.cursor() as cur:
             for name, query in TABLES.items():
-                cur.execute(query)
-                df = cur.fetchall_arrow().to_pandas()
+                df = fetch_df(cur, query)
+                # DuckDB returns timestamps without a time zone; mark them UTC, as
+                # Databricks does, so the snapshot looks the same either way
+                for col in df.select_dtypes("datetime64").columns:
+                    df[col] = df[col].dt.tz_localize("UTC")
                 df.to_parquet(os.path.join(out_dir, f"{name}.parquet"), index=False)
                 manifest["tables"][name] = len(df)
                 print(f"{name}: {len(df)} rows")

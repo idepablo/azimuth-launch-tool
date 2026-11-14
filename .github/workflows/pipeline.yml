@@ -1,0 +1,160 @@
+name: pipeline
+
+# The daily refresh and every build, on DuckDB inside GitHub Actions.
+#
+#   schedule / manual run : pull changed launches and reference data into
+#                           bronze, build and test, publish the app snapshot
+#                           and the updated bronze.
+#   push to main          : build and test from the current bronze, publish
+#                           the app snapshot (no new data).
+#   pull request          : build and test only, publish nothing.
+#
+# Bronze lives on the `bronze` branch as parquet files; the app snapshot on
+# the `data` branch. Nothing is published unless every dbt test passes.
+#
+# This replaced the Databricks runs because Databricks Free Edition would
+# not reliably start compute for a scheduled job. The Databricks workflows
+# are kept and can still be run by hand (databricks-refresh.yml).
+
+on:
+  schedule:
+    - cron: "23 11 * * *"   # daily, 11:23 UTC
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # one run at a time writes bronze and the snapshot; pull requests run apart
+  group: ${{ github.event_name == 'pull_request' && github.ref || 'pipeline-main' }}
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: write   # to publish the data and bronze branches
+    env:
+      AZIMUTH_ENGINE: duckdb
+      AZIMUTH_BRONZE_DIR: ${{ github.workspace }}/bronze
+      AZIMUTH_DUCKDB: ${{ github.workspace }}/azimuth_dbt/azimuth.duckdb
+      REFRESH: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+      PUBLISH: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check out bronze
+        uses: actions/checkout@v5
+        with:
+          ref: bronze
+          path: bronze
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-pipeline.txt dbt-duckdb==1.11.1
+
+      # ---- new data (scheduled and manual runs only) ---------------------------
+      # Reference snapshots come from the development mirror (no rate
+      # limit; coverage is checked downstream, see docs/scope.md)
+      - name: Refresh reference data
+        if: env.REFRESH == 'true'
+        run: |
+          python fetch_reference.py
+          python flatten_reference.py
+          python load_reference_local.py
+
+      - name: Fetch and merge changed launches
+        if: env.REFRESH == 'true'
+        run: python refresh_local.py
+
+      # ---- build and test --------------------------------------------------------
+      - name: Write dbt profile
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          azimuth_dbt:
+            target: duckdb
+            outputs:
+              duckdb:
+                type: duckdb
+                path: ${AZIMUTH_DUCKDB}
+                schema: silver
+                threads: 4
+          EOF
+
+      - name: Build and test
+        working-directory: azimuth_dbt
+        run: |
+          dbt build | tee build.log
+          # warnings do not fail the build; surface them on the run page
+          if grep -qE "WARN=[1-9]" build.log; then
+            echo "::warning title=dbt build::Passed with warnings. Most likely a new vehicle that needs a row in seeds/vehicle_classification.csv."
+          fi
+
+      - name: Source freshness
+        if: env.REFRESH == 'true'
+        working-directory: azimuth_dbt
+        run: dbt source freshness
+
+      # ---- publish ---------------------------------------------------------------
+      # The app reads a parquet snapshot of gold. Published to an orphan `data`
+      # branch, replaced on every run, so main's history never fills up with
+      # data files.
+      - name: Export app snapshot
+        if: env.PUBLISH == 'true'
+        run: |
+          python export_snapshot.py snapshot
+          # rerun the simulator backtest on the new data; the app shows it
+          python analysis/backtest.py snapshot snapshot/backtest.json
+
+      # Ask AZIMUTH exam: only runs when the API key secret is set, and
+      # never blocks the run (an API outage should not stop the data)
+      - name: Ask AZIMUTH exam
+        if: env.PUBLISH == 'true'
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            pip install -r app/requirements.txt
+            python analysis/ask_eval.py snapshot snapshot/ask_eval.json
+          else
+            echo "No ANTHROPIC_API_KEY secret: exam skipped"
+          fi
+
+      - name: Publish snapshot to the data branch
+        if: env.PUBLISH == 'true'
+        working-directory: snapshot
+        run: |
+          git init -q -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "Snapshot of gold, data as of $(python -c 'import json;print(json.load(open("manifest.json"))["data_as_of"])')"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data
+
+      # Bronze is published only after the build and tests above have passed
+      - name: Publish bronze
+        if: env.PUBLISH == 'true' && env.REFRESH == 'true'
+        working-directory: bronze
+        run: |
+          rm -rf .git
+          git init -q -b bronze
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "Bronze, $(date -u +%Y-%m-%d)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" bronze
+
+      # ---- checks ----------------------------------------------------------------
+      - name: Completeness against the API count
+        if: env.REFRESH == 'true'
+        run: python check_completeness.py
+
+      - name: Vehicles missing from the classification seed
+        if: env.REFRESH == 'true'
+        run: python check_new_vehicles.py

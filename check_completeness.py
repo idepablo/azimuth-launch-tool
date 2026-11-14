@@ -17,7 +17,7 @@ import os
 import sys
 
 from fetch_launches import fetch_page
-from load_to_bronze import CATALOG, SCHEMA, TABLE, get_connection
+from engine import ENGINE
 
 API_URL = "https://ll.thespacedevs.com/2.3.0/launches/previous/"
 
@@ -33,10 +33,15 @@ def main():
     # fetch_page waits out a 429, in case the refresh just used the hour's quota
     api_count = fetch_page(API_URL, {"limit": 1, "mode": "list"})["count"]
 
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(f"SELECT count(*) FROM {CATALOG}.{SCHEMA}.{TABLE}")
-            bronze_count = cur.fetchone()[0]
+    if ENGINE == "duckdb":
+        import bronze_local
+        bronze_count = len(bronze_local.read("launches"))
+    else:
+        from load_to_bronze import CATALOG, SCHEMA, TABLE, get_connection
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"SELECT count(*) FROM {CATALOG}.{SCHEMA}.{TABLE}")
+                bronze_count = cur.fetchone()[0]
 
     gap = api_count - bronze_count
     if gap > 0:

@@ -1,12 +1,14 @@
-name: refresh
+name: databricks refresh
 
 # Keeps AZIMUTH current: pulls launches that changed since the last load,
 # merges them into bronze, then rebuilds and redeploys silver and gold
 # through the same tested path as a push to main.
 
+# Manual only. The daily refresh runs on DuckDB (pipeline.yml), because
+# Databricks Free Edition would not reliably start compute for a scheduled
+# job. This is the original Databricks path, kept working. Note it publishes
+# the app snapshot from Databricks, which may be behind the DuckDB bronze.
 on:
-  schedule:
-    - cron: "23 11 * * *"   # daily, 11:23 UTC
   workflow_dispatch:
 
 concurrency:
@@ -54,7 +56,7 @@ jobs:
   # Same isolated build, tests and deploy as a push to main
   dbt:
     needs: ingest
-    uses: ./.github/workflows/dbt.yml
+    uses: ./.github/workflows/databricks-build.yml
     secrets: inherit
     permissions:
       contents: write   # the deploy job publishes the app snapshot
@@ -63,6 +65,7 @@ jobs:
     needs: dbt
     runs-on: ubuntu-latest
     env:
+      AZIMUTH_ENGINE: databricks
       DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
       DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
     steps:

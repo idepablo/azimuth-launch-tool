@@ -15,7 +15,7 @@ select
     launch_name,
 
     -- dimension keys
-    cast(date_format(launched_at, 'yyyyMMdd') as int) as date_key,
+    {{ date_key('launched_at') }} as date_key,
     provider_id                                       as provider_key,
     config_id                                         as vehicle_key,
     -- orbit key: nulls map to the dimension's Not published member

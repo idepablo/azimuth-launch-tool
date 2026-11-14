@@ -3,27 +3,23 @@
 
 with dates as (
 
-    select explode(sequence(
-        to_date('1957-01-01'),
-        to_date('2030-12-31'),
-        interval 1 day
-    )) as date_day
+    {{ date_spine('1957-01-01', '2030-12-31') }}
 
 )
 
 select
     -- yyyymmdd integer, the conventional date dimension key
-    cast(date_format(date_day, 'yyyyMMdd') as int) as date_key,
+    {{ date_key('date_day') }} as date_key,
 
     date_day,
     year(date_day)                                 as year,
     quarter(date_day)                              as quarter,
     month(date_day)                                as month,
-    date_format(date_day, 'MMMM')                  as month_name,
+    {{ month_name('date_day') }} as month_name,
     day(date_day)                                  as day_of_month,
-    date_format(date_day, 'EEEE')                  as day_name,
-    weekday(date_day) >= 5                         as is_weekend,
+    {{ day_name('date_day') }} as day_name,
+    {{ is_weekend('date_day') }} as is_weekend,
     -- decade as a label, matching how the analysis talks about eras
-    concat(cast(floor(year(date_day) / 10) * 10 as string), 's') as decade
+    concat(cast(cast(floor(year(date_day) / 10) * 10 as int) as string), 's') as decade
 
 from dates

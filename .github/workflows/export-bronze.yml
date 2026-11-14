@@ -1,0 +1,42 @@
+name: export bronze from Databricks
+
+# One-time (or occasional) copy of the Databricks bronze tables to the
+# `bronze` branch, which the DuckDB pipeline reads. Used when the daily
+# refresh moved off Databricks. Overwrites the bronze branch: run it only
+# to reset bronze to what Databricks holds.
+on:
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-pipeline.txt
+
+      - name: Start the SQL warehouse
+        run: .github/scripts/retry.sh 3 60 python start_warehouse.py
+
+      - name: Export bronze
+        run: python export_bronze.py bronze
+
+      - name: Publish to the bronze branch
+        working-directory: bronze
+        run: |
+          git init -q -b bronze
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "Bronze exported from Databricks, $(date -u +%Y-%m-%d)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" bronze

@@ -1,10 +1,10 @@
-name: dbt build
+name: databricks build
 
+# Manual only, or called by databricks-refresh.yml. Builds, tests and
+# deploys on Databricks. Pushes and pull requests now build on DuckDB
+# (pipeline.yml).
 on:
-  push:
-    branches: [main]
-  pull_request:
-  # also called by refresh.yml after new data lands in bronze
+  workflow_dispatch:
   workflow_call:
 
 jobs:
@@ -65,7 +65,7 @@ jobs:
   # passed every test. Pull requests never deploy.
   deploy:
     needs: dbt-build
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write   # to publish the app snapshot to the data branch
@@ -123,6 +123,7 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+          AZIMUTH_ENGINE: databricks
         run: |
           pip install -r requirements-pipeline.txt
           .github/scripts/retry.sh 4 300 python export_snapshot.py snapshot

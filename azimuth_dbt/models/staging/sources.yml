@@ -2,9 +2,13 @@ version: 2
 
 sources:
   - name: bronze
-    catalog: azimuth
+    database: azimuth
     schema: bronze
     description: Raw launch data as ingested from Launch Library 2. All columns string.
+    # On DuckDB (the daily refresh), bronze is a folder of parquet files
+    # (see bronze_local.py). Databricks ignores this and reads azimuth.bronze.
+    meta:
+      external_location: "{{ env_var('AZIMUTH_BRONZE_DIR', '../bronze') }}/{name}.parquet"
     tables:
       - name: launches
         description: One row per launch attempt, merged on launch_id.
