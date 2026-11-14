@@ -88,8 +88,12 @@ WHOLE_MARKET = "Whole market"
 NEUTRAL = [BLUE, LIGHT, "#3FB68B", "#C38BFF", "#E46F6F", "#7D8B99", "#F7D774"]  # no amber
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
 def unit_providers(lens):
+    return _unit_providers(lens, data.version())
+
+
+@st.cache_data(max_entries=10, show_spinner=False)
+def _unit_providers(lens, snapshot):
     """Map each vehicle (family or configuration) to the provider of its latest launch.
 
     Latest rather than most frequent, so Proton shows its current operator
