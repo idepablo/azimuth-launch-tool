@@ -13,7 +13,7 @@ import os
 import sys
 from datetime import datetime, timezone
 
-from engine import ENGINE, fetch_df, get_connection
+from engine import fetch_df, get_connection
 
 TABLES = {
     "dim_provider": "SELECT * FROM azimuth.gold.dim_provider",
@@ -42,10 +42,6 @@ def main(out_dir):
         with conn.cursor() as cur:
             for name, query in TABLES.items():
                 df = fetch_df(cur, query)
-                # DuckDB returns timestamps without a time zone; mark them UTC, as
-                # Databricks does, so the snapshot looks the same either way
-                for col in df.select_dtypes("datetime64").columns:
-                    df[col] = df[col].dt.tz_localize("UTC")
                 df.to_parquet(os.path.join(out_dir, f"{name}.parquet"), index=False)
                 manifest["tables"][name] = len(df)
                 print(f"{name}: {len(df)} rows")
