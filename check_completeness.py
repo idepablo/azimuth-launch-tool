@@ -34,8 +34,12 @@ def main():
     api_count = fetch_page(API_URL, {"limit": 1, "mode": "list"})["count"]
 
     if ENGINE == "duckdb":
+        # row count from the file footer: no data read, and no parquet
+        # thread pool left running at exit (which once aborted the process
+        # after the check had passed)
+        import pyarrow.parquet as pq
         import bronze_local
-        bronze_count = len(bronze_local.read("launches"))
+        bronze_count = pq.read_metadata(bronze_local.path("launches")).num_rows
     else:
         from load_to_bronze import CATALOG, SCHEMA, TABLE, get_connection
         with get_connection() as conn:
