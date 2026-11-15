@@ -344,6 +344,28 @@ next section); the description below applies to both engines.
 Limits: GitHub disables scheduled workflows on a repository with no activity for 60 days, which
 would stop the refresh; the freshness check is what makes that visible.
 
+## New vehicles
+
+When a launch arrives on a vehicle that is not in the hand-reviewed classification seed, the daily
+refresh classifies it where the data makes it clear (`classify_new_vehicles.py`), before the build:
+
+1. **Family.** A new version of a known rocket takes its family's class, when every classified member
+   of the family agrees. Vulcan VC6L, next to VC2S and VC4S, is the first example.
+2. **Launches.** Otherwise, a launch from the Moon makes it `non_earth_launch`, and any launch to a
+   known orbit other than suborbital makes it `orbital`.
+
+**Suborbital is never decided automatically.** A new rocket's first flights are often suborbital tests
+(Starship, Soyuz-5), and test vehicles sit in orbital families (KSLV 2 TLV, Starship Prototype). A
+vehicle with only suborbital flights, or with no published orbit yet, waits: it stays out of the
+orbital figures, which is correct for it, the app footer counts it as awaiting classification, and
+it is classified on its own the day it flies to orbit. The family rule also skips names that mark a
+test vehicle (prototype, TLV, "pp").
+
+**Tested** by hiding each of the 487 hand-classified vehicles in turn and classifying it with these
+rules: 456 classified, all correctly; 31 left waiting, 26 of which are truly suborbital. No vehicle was
+classified wrongly. Every automatic row says in its notes which rule classified it, and the run page
+lists them, so they can be reviewed.
+
 ## Where the daily refresh runs
 
 AZIMUTH was built on Databricks Free Edition, and the daily refresh ran there until November 2026.
@@ -521,4 +543,5 @@ verified.
 | 2026-10-26 | Phase 5: daily incremental refresh with page-by-page merge, completeness check against the API count (gap closed), source freshness, and a warning path for vehicles new since the last seed review. Pallas-1 added to the seed. |
 | 2026-10-26 | Simulator backtest added (five cutoffs, three checks), rerun on every deploy and shown on the app's Methodology page. |
 | 2026-10-26 | Ask AZIMUTH: question to SQL over the snapshot in a sandboxed DuckDB, out-of-scope handling with reports by email, per-visit limit, and a 36-question exam run after every deploy. |
+| 2026-11-15 | New vehicles classified automatically from their family or launch orbits; suborbital never decided automatically. Tested on all 487 hand-classified vehicles: 456 correct, 31 left waiting, none wrong. |
 | 2026-11-14 | Daily refresh moved from Databricks to DuckDB in GitHub Actions after Free Edition stopped starting compute for scheduled runs; same dbt project with five engine-specific macros, bronze as parquet on a `bronze` branch, output verified identical before switching. |

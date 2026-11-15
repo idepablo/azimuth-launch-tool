@@ -33,7 +33,9 @@ def main():
         annotate("notice", "Every launched vehicle is in the classification seed.")
         return
     listed = "; ".join(f"{r[1]} (config {r[0]}, {r[2]} launches, first {r[3]})" for r in rows)
-    annotate("warning", f"{len(rows)} vehicle(s) need a row in seeds/vehicle_classification.csv: {listed}")
+    annotate("warning", f"{len(rows)} vehicle(s) waiting to be classified, so not yet counted "
+             f"(only suborbital flights so far, or no known orbit; classified automatically "
+             f"once they fly to orbit, or add a row to seeds/vehicle_classification.csv): {listed}")
 
 
 if __name__ == "__main__":

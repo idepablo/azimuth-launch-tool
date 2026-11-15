@@ -100,6 +100,7 @@ azimuth/
 ├── engine.py                     # DuckDB (default) or Databricks for export and checks
 ├── start_warehouse.py            # starts the Databricks SQL warehouse before a Databricks run
 ├── check_completeness.py         # bronze row count vs the API's count
+├── classify_new_vehicles.py      # classifies new rockets from family or launch orbit
 ├── check_new_vehicles.py         # names vehicles missing from the classification seed
 ├── requirements-pipeline.txt     # minimal dependencies for the scheduled refresh
 ├── export_snapshot.py            # gold tables -> parquet snapshot for the app
