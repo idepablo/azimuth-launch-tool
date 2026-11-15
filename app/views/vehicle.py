@@ -16,6 +16,7 @@ RECENT = 20  # flights in the "recent" window
 maturation = data.table("mart_maturation")
 reliability = data.table("mart_vehicle_reliability")
 vehicles = data.table("dim_vehicle")
+launches = data.table("fct_launches")
 
 # ---- which vehicle -------------------------------------------------------------
 params = st.query_params
@@ -52,6 +53,14 @@ v = units[units["unit_name"] == vehicle].iloc[0]
 history = maturation[(maturation["lens"] == lens) & (maturation["unit_key"] == v["unit_key"])] \
     .sort_values("flight_number")
 
+# suborbital flights by this vehicle (tests, hops, suborbital missions such as Electron's
+# HASTE): shown, but not part of its orbital record
+unit_vehicle_keys = (vehicles.loc[vehicles["family_name"] == v["unit_key"], "vehicle_key"]
+                     if lens == "family" else pd.Series([v["unit_key"]]))
+tests = launches[launches["vehicle_key"].isin(unit_vehicle_keys)
+                 & (launches["scope_class"] == "suborbital")].sort_values("launched_at",
+                                                                          ascending=False)
+
 # ---- header ------------------------------------------------------------------------
 status = "Active" if v["is_active"] else "Retired"
 st.title(vehicle)
@@ -68,7 +77,9 @@ if st.button(f"Simulate {vehicle}'s future", type="primary", disabled=not v["is_
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Orbital flights", f"{int(v['flights']):,}")
 m1.caption(f"{int(v['successes'])} successes · {int(v['failures'])} failures · "
-           f"{int(v['partial_failures'])} partial")
+           f"{int(v['partial_failures'])} partial"
+           + (f" · plus {len(tests)} suborbital flight{'s' if len(tests) != 1 else ''}, "
+              "not counted" if len(tests) else ""))
 m2.metric("Success rate", ui.pct(v["reliability"]))
 m2.caption(f"95% lower bound {ui.pct(v['reliability_lower_95'])}")
 
@@ -188,3 +199,21 @@ st.dataframe(
 )
 
 ui.footer()
+
+# ---- suborbital flights ------------------------------------------------------------------------
+if len(tests):
+    st.subheader("Suborbital flights")
+    st.caption(f"{len(tests)} flight{'s' if len(tests) != 1 else ''} that did not aim for orbit: "
+               "development tests, hops or suborbital missions. They are part of the vehicle's "
+               "story but not of its orbital record, so they are left out of every figure above "
+               "and of the market figures.")
+    st.dataframe(
+        tests[["launched_at", "launch_name", "status_name"]],
+        hide_index=True, width="stretch", height=min(320, 38 + 35 * len(tests)),
+        column_config={
+            "launched_at": st.column_config.DateColumn("Date", format="D MMM YYYY"),
+            "launch_name": st.column_config.TextColumn("Flight"),
+            "status_name": st.column_config.TextColumn("Result"),
+        },
+    )
+
