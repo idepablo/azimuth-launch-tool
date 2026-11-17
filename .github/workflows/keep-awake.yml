@@ -1,0 +1,28 @@
+name: keep awake
+
+# Opens the Streamlit app in a browser every 6 hours, so it never reaches the
+# 12 hours without visitors after which Streamlit Community Cloud puts it to
+# sleep. If it is asleep anyway, it wakes it up (scripts/keep_awake.py).
+on:
+  schedule:
+    - cron: "41 */6 * * *"   # every 6 hours
+  workflow_dispatch:
+
+jobs:
+  visit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install a browser
+        run: |
+          pip install playwright==1.55.0
+          python -m playwright install --with-deps chromium
+
+      - name: Visit the app
+        run: python scripts/keep_awake.py https://azimuth-launch.streamlit.app/
